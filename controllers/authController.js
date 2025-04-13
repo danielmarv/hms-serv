@@ -4,10 +4,8 @@ import User from '../models/User.js';
 import sendEmail from '../utils/sendEmail.js'; // Optional for email verification
 import crypto from 'crypto';
 
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: '7d',
-  });
+const generateToken = (id) => {
+    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
 // Register new user
