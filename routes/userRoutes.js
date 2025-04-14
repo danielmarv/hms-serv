@@ -16,7 +16,7 @@ const router = express.Router();
 
 router.use(isAuthenticated);
 
-router.get('/', hasPermission('view_users'), getAllUsers);
+router.get('/',  getAllUsers);
 router.get('/:id', hasPermission('view_user_detail'), getUserById);
 router.put('/:id', hasPermission('edit_user'), updateUser);
 router.delete('/:id', hasPermission('delete_user'), deleteUser);
