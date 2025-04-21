@@ -1,4 +1,3 @@
-// models/Invoice.js
 import mongoose from 'mongoose';
 
 const invoiceSchema = new mongoose.Schema({
@@ -9,25 +8,24 @@ const invoiceSchema = new mongoose.Schema({
   },
   booking: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking',
-    required: true
+    ref: 'Booking'
   },
-  invoice_number: {
+  invoiceNumber: {
     type: String,
     unique: true,
     required: true
   },
-  issued_date: {
+  issuedDate: {
     type: Date,
     default: Date.now
   },
-  due_date: Date,
+  dueDate: Date,
 
   items: [{
     description: String,
     quantity: { type: Number, default: 1 },
-    unit_price: Number,
-    total: Number // computed as quantity * unit_price
+    unitPrice: Number,
+    total: Number // Auto-calculated elsewhere: quantity * unitPrice
   }],
 
   taxes: [{
@@ -41,8 +39,14 @@ const invoiceSchema = new mongoose.Schema({
     amount: Number
   }],
 
-  subtotal: Number,
-  total: Number,
+  subtotal: {
+    type: Number,
+    required: true
+  },
+  total: {
+    type: Number,
+    required: true
+  },
   currency: {
     type: String,
     default: 'USD'
@@ -50,18 +54,18 @@ const invoiceSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['unpaid', 'paid', 'partial', 'cancelled', 'refunded'],
-    default: 'unpaid'
+    enum: ['Unpaid', 'Paid', 'Partial', 'Cancelled', 'Refunded'],
+    default: 'Unpaid'
   },
 
   notes: String,
 
-  payment_method: {
+  paymentMethod: {
     type: String,
-    enum: ['cash', 'credit_card', 'debit_card', 'mobile_money', 'bank_transfer', 'online'],
+    enum: ['Cash', 'Credit Card', 'Debit Card', 'Mobile Money', 'Bank Transfer', 'Online']
   },
 
-  paid_date: Date,
+  paidDate: Date,
 
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -73,5 +77,4 @@ const invoiceSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-const Invoice = mongoose.model('Invoice', invoiceSchema);
-export default Invoice;
+export default mongoose.model('Invoice', invoiceSchema);
