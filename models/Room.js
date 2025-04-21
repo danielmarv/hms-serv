@@ -6,7 +6,10 @@ const roomSchema = new mongoose.Schema({
 
   floor: String,
   building: String,
-  view: { type: String, enum: ['sea', 'mountain', 'city', 'garden', 'courtyard', 'none'] },
+  view: {
+    type: String,
+    enum: ['sea', 'mountain', 'city', 'garden', 'courtyard', 'none']
+  },
 
   is_smoking_allowed: { type: Boolean, default: false },
   is_accessible: { type: Boolean, default: false },
@@ -21,8 +24,7 @@ const roomSchema = new mongoose.Schema({
 
   minibar_items: [String],
   connected_rooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }],
-
-  branch: { type: String },
+  branch: String,
 
   has_smart_lock: Boolean,
   automation_settings: {

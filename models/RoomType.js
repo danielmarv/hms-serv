@@ -35,11 +35,13 @@ const roomTypeSchema = new mongoose.Schema({
     enum: ['standard', 'deluxe', 'suite', 'presidential', 'family', 'studio']
   },
 
-  // Custom group pricing
-  group_pricing: [{
-    group_name: String,
-    custom_price: Number
-  }],
+  // Group Pricing
+  group_pricing: [
+    {
+      group_name: String,
+      custom_price: Number
+    }
+  ],
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
