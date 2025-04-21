@@ -52,3 +52,34 @@ export const deleteRoom = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const searchAvailableRooms = async (req, res) => {
+    const { startDate, endDate, roomType, floor, smoking, accessible } = req.query;
+  
+    try {
+      const bookedRoomIds = await Booking.find({
+        $or: [
+          {
+            check_in: { $lte: endDate },
+            check_out: { $gte: startDate }
+          }
+        ]
+      }).distinct('room');
+  
+      const filters = {
+        _id: { $nin: bookedRoomIds },
+        status: 'available'
+      };
+  
+      if (roomType) filters.room_type = roomType;
+      if (floor) filters.floor = floor;
+      if (smoking) filters.is_smoking_allowed = smoking === 'true';
+      if (accessible) filters.is_accessible = accessible === 'true';
+  
+      const availableRooms = await Room.find(filters).populate('room_type');
+  
+      res.status(200).json({ rooms: availableRooms });
+    } catch (err) {
+      res.status(500).json({ message: 'Error fetching availability', error: err.message });
+    }
+  };
