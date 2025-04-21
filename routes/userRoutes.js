@@ -9,7 +9,7 @@ import {
 //   assignPermissionsToUser
 } from '../controllers/userController.js';
 
-import { isAuthenticated } from '../middlewares/authMiddleware.js';
+// import { isAuthenticated } from '../middlewares/authMiddleware.js';
 import { hasPermission } from '../middlewares/permissionMiddleware.js';
 
 const router = express.Router();
