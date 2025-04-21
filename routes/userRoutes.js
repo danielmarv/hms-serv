@@ -14,7 +14,7 @@ import { hasPermission } from '../middlewares/permissionMiddleware.js';
 
 const router = express.Router();
 
-router.use(isAuthenticated);
+// router.use(isAuthenticated);
 
 router.get('/',  getAllUsers);
 router.get('/:id', hasPermission('view_user_detail'), getUserById);
