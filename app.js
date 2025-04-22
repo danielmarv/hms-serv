@@ -83,13 +83,6 @@ app.get("/api/health", (req, res) => {
 
 
 
-// 404 handler
-app.all("*", (req, res, next) => {
-  res.status(404).json({
-    success: false,
-    message: `Cannot find ${req.originalUrl} on this server!`,
-  })
-})
 
 // Error handling middleware
 app.use(errorHandler)
