@@ -1,4 +1,4 @@
-// models/StockTransaction.js
+
 import mongoose from 'mongoose';
 
 const stockTransactionSchema = new mongoose.Schema({
