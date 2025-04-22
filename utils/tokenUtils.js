@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken"
 import crypto from "crypto"
 
-// Store for blacklisted tokens (in production, use Redis)
 const tokenBlacklist = new Set()
 
 // Generate access token
