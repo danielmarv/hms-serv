@@ -1,18 +1,36 @@
-import express from 'express';
+import express from "express"
 import {
-  createRoomType,
-  getRoomTypes,
+  getAllRoomTypes,
   getRoomTypeById,
+  createRoomType,
   updateRoomType,
-  deleteRoomType
-} from '../controllers/roomType.controller.js';
+  deleteRoomType,
+  getRoomTypeStats,
+} from "../controllers/roomTypeController.js"
+import { validateCreateRoomType, validateUpdateRoomType, validateObjectId } from "../middleware/validators.js"
+import { authenticate, authorize } from "../middleware/auth.js"
 
-const router = express.Router();
+const router = express.Router()
 
-router.post('/', createRoomType);
-router.get('/', getRoomTypes);
-router.get('/:id', getRoomTypeById);
-router.put('/:id', updateRoomType);
-router.delete('/:id', deleteRoomType);
+// Apply authentication middleware to all routes
+router.use(authenticate)
 
-export default router;
+// Get all room types
+router.get("/", getAllRoomTypes)
+
+// Get room type statistics
+router.get("/stats", getRoomTypeStats)
+
+// Get room type by ID
+router.get("/:id", validateObjectId("id"), getRoomTypeById)
+
+// Create new room type (admin only)
+router.post("/", authorize(["admin", "manager"]), validateCreateRoomType, createRoomType)
+
+// Update room type (admin only)
+router.put("/:id", authorize(["admin", "manager"]), validateUpdateRoomType, updateRoomType)
+
+// Delete room type (admin only)
+router.delete("/:id", authorize(["admin", "manager"]), validateObjectId("id"), deleteRoomType)
+
+export default router
