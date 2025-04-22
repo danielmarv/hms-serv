@@ -10,7 +10,7 @@ const supplierSchema = new mongoose.Schema({
   phone: String,
   email: String,
   address: String,
-  supplies: [String], // e.g. ["Toiletries", "Fresh Veg", "Linens"]
+  supplies: [String],
 
   is_active: {
     type: Boolean,
