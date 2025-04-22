@@ -1,9 +1,8 @@
 import { ApiError } from "../utils/apiError.js"
 
-const errorHandler = (req, res, next, err) => {
+const errorHandler = (err, req, res, next) => {
   console.error("Error Handler:", err)
 
-  // If it's an operational error (expected error)
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json({
       success: false,
@@ -12,7 +11,6 @@ const errorHandler = (req, res, next, err) => {
     })
   }
 
-  // Handle Mongoose validation errors
   if (err.name === "ValidationError") {
     const errors = Object.values(err.errors).map((error) => error.message)
     return res.status(400).json({
@@ -23,7 +21,6 @@ const errorHandler = (req, res, next, err) => {
     })
   }
 
-  // Handle Mongoose cast errors (invalid ObjectId)
   if (err.name === "CastError") {
     return res.status(400).json({
       success: false,
@@ -32,7 +29,6 @@ const errorHandler = (req, res, next, err) => {
     })
   }
 
-  // Handle duplicate key errors
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0]
     return res.status(400).json({
@@ -42,7 +38,6 @@ const errorHandler = (req, res, next, err) => {
     })
   }
 
-  // Handle JWT errors
   if (err.name === "JsonWebTokenError") {
     return res.status(401).json({
       success: false,
@@ -59,7 +54,6 @@ const errorHandler = (req, res, next, err) => {
     })
   }
 
-  // Default to 500 server error
   return res.status(500).json({
     success: false,
     message: "Internal Server Error",
