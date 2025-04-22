@@ -14,11 +14,11 @@ export const validate = (req, res, next) => {
 export const validateObjectId = (paramName) => {
   return param(paramName).custom((value) => {
     if (!mongoose.Types.ObjectId.isValid(value)) {
-      throw new Error(`Invalid ${paramName}`)
+      throw new Error(`Invalid ${paramName}`);
     }
-    return true
-  })
-}
+    return true;
+  });
+};
 
 // User registration validation
 export const validateUserRegistration = [
