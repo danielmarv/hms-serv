@@ -140,22 +140,7 @@ inventoryItemSchema.index({ category: 1 })
 inventoryItemSchema.index({ sku: 1 }, { unique: true, sparse: true })
 inventoryItemSchema.index({ name: 1 })
 inventoryItemSchema.index({ supplier: 1 })
-inventoryItemSchema.index(
-  {
-    isActive: 1,
-    name: 1,
-  }
-)
-inventoryItemSchema.index(
-{
-  supplier: 1
-}
-)
-inventoryItemSchema.index(
-{
-  isActive: 1
-}
-)
+inventoryItemSchema.index({ isActive: 1 })
 
 const InventoryItem = mongoose.model("InventoryItem", inventoryItemSchema)
 export default InventoryItem

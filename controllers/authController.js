@@ -177,7 +177,7 @@ export const refreshToken = async (req, res, next) => {
 // Verify email
 export const verifyEmail = async (req, res, next) => {
   try {
-    const { token } = req.params
+    const token = req.params.token
 
     // Hash token
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex")
@@ -252,7 +252,7 @@ export const forgotPassword = async (req, res, next) => {
 // Reset password
 export const resetPassword = async (req, res, next) => {
   try {
-    const { token } = req.params
+    const token = req.params.token
     const { password } = req.body
 
     // Hash token

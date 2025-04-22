@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/apiError.js"
 
-const errorHandler = (err, req, res, next) => {
-  console.error(err)
+const errorHandler = (req, res, next, err) => {
+  console.error("Error Handler:", err)
 
   // If it's an operational error (expected error)
   if (err instanceof ApiError) {

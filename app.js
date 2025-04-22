@@ -7,8 +7,20 @@ import xss from "xss-clean"
 import hpp from "hpp"
 import compression from "compression"
 import dotenv from "dotenv"
+import authRoutes from "./routes/authRoutes.js"
+import userRoutes from "./routes/userRoutes.js"
+import roomTypeRoutes from "./routes/roomTypeRoutes.js"
+import roomRoutes from "./routes/roomRoutes.js"
+import maintenanceRoutes from "./routes/maintenanceRoutes.js"
+import housekeepingRoutes from "./routes/housekeepingRoutes.js"
+import guestRoutes from "./routes/guestRoutes.js"
+import bookingRoutes from "./routes/bookingRoutes.js"
+import invoiceRoutes from "./routes/invoiceRoutes.js"
+import paymentRoutes from "./routes/paymentRoutes.js"
+import inventoryRoutes from "./routes/inventoryRoutes.js"
+import supplierRoutes from "./routes/supplierRoutes.js"
+import restaurantRoutes from "./routes/restaurantRoutes.js"
 
-import routes from "./routes/index.js"
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
 
@@ -35,8 +47,29 @@ if (process.env.NODE_ENV === "development") {
 // Rate limiting
 app.use("/api", apiLimiter)
 
-// Mount all routes
-app.use(routes)
+app.use("/api/auth", authRoutes)
+app.use("/api/users", userRoutes)
+
+// Room management module routes
+app.use("/api/room-types", roomTypeRoutes)
+app.use("/api/rooms", roomRoutes)
+app.use("/api/maintenance", maintenanceRoutes)
+app.use("/api/housekeeping", housekeepingRoutes)
+
+// Guest and booking management module routes
+app.use("/api/guests", guestRoutes)
+app.use("/api/bookings", bookingRoutes)
+
+// Finance module routes
+app.use("/api/invoices", invoiceRoutes)
+app.use("/api/payments", paymentRoutes)
+
+// Inventory management module routes
+app.use("/api/inventory", inventoryRoutes)
+app.use("/api/suppliers", supplierRoutes)
+
+// Restaurant management module routes
+app.use("/api/restaurant", restaurantRoutes)
 
 // API health check endpoint
 app.get("/api/health", (req, res) => {
@@ -47,6 +80,8 @@ app.get("/api/health", (req, res) => {
     environment: process.env.NODE_ENV,
   })
 })
+
+
 
 // 404 handler
 app.all("*", (req, res, next) => {

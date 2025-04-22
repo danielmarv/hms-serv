@@ -112,7 +112,8 @@ export const isOwnerOrAdmin = (modelName, paramIdField = "id") => {
         return next()
       }
 
-      const Model = require(`../models/${modelName}`).default
+      // Use dynamic import instead of require
+      const Model = (await import(`../models/${modelName}.js`)).default
       const resource = await Model.findById(resourceId)
 
       if (!resource) {

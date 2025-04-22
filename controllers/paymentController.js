@@ -43,13 +43,12 @@ export const getAllPayments = async (req, res, next) => {
     if (startDate || endDate) {
       filter.paidAt = {}
       if (startDate) filter.paidAt.$gte = new Date(startDate)
-      filter.paidAt = {}
-      if (startDate) filter.paidAt.$gte = new Date(startDate)
       if (endDate) {
         const endDateObj = new Date(endDate)
         endDateObj.setHours(23, 59, 59, 999)
         filter.paidAt.$lte = endDateObj
       }
+    }
 
     // Calculate pagination
     const skip = (Number(page) - 1) * Number(limit)
@@ -77,7 +76,7 @@ export const getAllPayments = async (req, res, next) => {
         totalPages: Math.ceil(total / Number(limit)),
       },
       data: payments,
-    })}
+    })
   } catch (error) {
     next(error)
   }
@@ -223,7 +222,7 @@ export const createPayment = async (req, res, next) => {
     // Update booking payment status if provided
     if (booking) {
       const bookingToUpdate = await Booking.findById(booking)
-      
+
       // If this is a deposit, update payment status to partial
       if (isDeposit) {
         bookingToUpdate.payment_status = "partial"
@@ -231,18 +230,18 @@ export const createPayment = async (req, res, next) => {
         // Check if payment covers the total amount
         const totalPaid = await Payment.aggregate([
           { $match: { booking: bookingToUpdate._id, status: "Completed" } },
-          { $group: { _id: null, total: { $sum: "$amountPaid" } } }
+          { $group: { _id: null, total: { $sum: "$amountPaid" } } },
         ])
-        
+
         const totalPaidAmount = (totalPaid[0]?.total || 0) + amountPaid
-        
+
         if (totalPaidAmount >= bookingToUpdate.total_amount) {
           bookingToUpdate.payment_status = "paid"
         } else if (totalPaidAmount > 0) {
           bookingToUpdate.payment_status = "partial"
         }
       }
-      
+
       bookingToUpdate.updatedBy = req.user.id
       await bookingToUpdate.save()
     }
@@ -356,7 +355,7 @@ export const processRefund = async (req, res, next) => {
 
     // Update payment status
     const newStatus = amount === payment.amountPaid ? "Refunded" : "Partially Refunded"
-    
+
     payment.status = newStatus
     payment.refundDetails = {
       amount,
@@ -376,14 +375,14 @@ export const processRefund = async (req, res, next) => {
         // Reduce amount paid and increase balance
         invoice.amountPaid -= amount
         invoice.balance += amount
-        
+
         // Update status
         if (invoice.balance >= invoice.total) {
           invoice.status = "Issued"
         } else if (invoice.balance > 0) {
           invoice.status = "Partially Paid"
         }
-        
+
         invoice.updatedBy = req.user.id
         await invoice.save()
       }
@@ -395,24 +394,24 @@ export const processRefund = async (req, res, next) => {
       if (booking) {
         // Recalculate total paid
         const totalPaid = await Payment.aggregate([
-          { 
-            $match: { 
-              booking: booking._id, 
+          {
+            $match: {
+              booking: booking._id,
               status: "Completed",
-              _id: { $ne: payment._id } // Exclude current payment
-            } 
+              _id: { $ne: payment._id }, // Exclude current payment
+            },
           },
-          { $group: { _id: null, total: { $sum: "$amountPaid" } } }
+          { $group: { _id: null, total: { $sum: "$amountPaid" } } },
         ])
-        
+
         const totalPaidAmount = totalPaid[0]?.total || 0
-        
+
         if (totalPaidAmount === 0) {
           booking.payment_status = "pending"
         } else if (totalPaidAmount < booking.total_amount) {
           booking.payment_status = "partial"
         }
-        
+
         booking.updatedBy = req.user.id
         await booking.save()
       }
@@ -487,7 +486,9 @@ export const sendReceiptByEmail = async (req, res, next) => {
     await sendEmail({
       email: recipientEmail,
       subject: `Payment Receipt #${payment.receiptNumber}`,
-      message: message || `Thank you for your payment of ${payment.amountPaid} ${payment.currency}. Please find your receipt attached.`,
+      message:
+        message ||
+        `Thank you for your payment of ${payment.amountPaid} ${payment.currency}. Please find your receipt attached.`,
       // attachments: [
       //   {
       //     filename: `Receipt-${payment.receiptNumber}.pdf`,
