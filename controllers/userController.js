@@ -1,153 +1,371 @@
-import User from '../models/User.js';
-import Role from '../models/Role.js';
-import Permission from '../models/Permission.js';
+import User from "../models/User.js"
+import Role from "../models/Role.js"
+import { ApiError } from "../utils/apiError.js"
 
-// Get all users with filtering, searching & pagination
-export const getAllUsers = async (req, res) => {
-  const { status, role, search, page = 1, limit = 20 } = req.query;
-  const query = {};
+// Get all users with filtering, pagination, and sorting
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const { status, role, department, branch, search, page = 1, limit = 20, sort = "-createdAt" } = req.query
 
-  if (status) query.status = status;
-  if (role) query.role = role;
-  if (search) {
-    query.$or = [
-      { full_name: new RegExp(search, 'i') },
-      { email: new RegExp(search, 'i') },
-      { phone: new RegExp(search, 'i') }
-    ];
+    // Build filter object
+    const filter = {}
+
+    if (status) filter.status = status
+    if (role) filter.role = role
+    if (department) filter.department = department
+    if (branch) filter.branch = branch
+
+    // Search functionality
+    if (search) {
+      filter.$or = [
+        { full_name: new RegExp(search, "i") },
+        { email: new RegExp(search, "i") },
+        { phone: new RegExp(search, "i") },
+      ]
+    }
+
+    // Calculate pagination
+    const skip = (Number(page) - 1) * Number(limit)
+
+    // Execute query with pagination and sorting
+    const users = await User.find(filter)
+      .populate("role", "name description")
+      .populate("custom_permissions", "key description")
+      .sort(sort)
+      .skip(skip)
+      .limit(Number(limit))
+
+    // Get total count for pagination
+    const total = await User.countDocuments(filter)
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      total,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
+      },
+      data: users,
+    })
+  } catch (error) {
+    next(error)
   }
+}
 
-  const users = await User.find(query)
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .populate('role')
-    .populate('custom_permissions');
+// Get user by ID
+export const getUserById = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate("role", "name description")
+      .populate("custom_permissions", "key description")
+      .populate("createdBy", "full_name")
+      .populate("updatedBy", "full_name")
 
-  const total = await User.countDocuments(query);
+    if (!user) {
+      return next(new ApiError("User not found", 404))
+    }
 
-  res.json({ users, total, page: +page });
-};
-
-// Get single user
-export const getUserById = async (req, res) => {
-  const user = await User.findById(req.params.id)
-    .populate('role')
-    .populate('custom_permissions');
-
-  if (!user) return res.status(404).json({ message: 'User not found' });
-
-  res.json(user);
-};
-
-// Create a user
-export const createUser = async (req, res) => {
-  const {
-    full_name, email, password, phone, gender, dob,
-    national_id, address, department, job_title, branch,
-    role, custom_permissions, status
-  } = req.body;
-
-  const exists = await User.findOne({ email });
-  if (exists) return res.status(400).json({ message: 'Email already exists' });
-
-  const user = new User({
-    full_name,
-    email,
-    password,
-    phone,
-    gender,
-    dob,
-    national_id,
-    address,
-    department,
-    job_title,
-    branch,
-    role,
-    custom_permissions,
-    status,
-    createdBy: req.user?._id
-  });
-
-  await user.save();
-  res.status(201).json(user);
-};
-
-// Update user info
-export const updateUser = async (req, res) => {
-  const updateFields = {
-    ...req.body,
-    updatedBy: req.user?._id
-  };
-
-  if (updateFields.password) {
-    delete updateFields.password; // handled separately
+    res.status(200).json({
+      success: true,
+      data: user,
+    })
+  } catch (error) {
+    next(error)
   }
+}
 
-  const user = await User.findByIdAndUpdate(req.params.id, updateFields, { new: true })
-    .populate('role')
-    .populate('custom_permissions');
+// Create user
+export const createUser = async (req, res, next) => {
+  try {
+    const {
+      full_name,
+      email,
+      password,
+      phone,
+      gender,
+      dob,
+      role,
+      custom_permissions,
+      national_id,
+      address,
+      department,
+      job_title,
+      branch,
+      status,
+    } = req.body
 
-  if (!user) return res.status(404).json({ message: 'User not found' });
+    // Check if email already exists
+    const existingUser = await User.findOne({ email })
+    if (existingUser) {
+      return next(new ApiError("Email already in use", 400))
+    }
 
-  res.json(user);
-};
+    // Validate role if provided
+    if (role) {
+      const roleExists = await Role.findById(role)
+      if (!roleExists) {
+        return next(new ApiError("Invalid role", 400))
+      }
+    }
 
-// Update user password
-export const updateUserPassword = async (req, res) => {
-  const { password } = req.body;
-  const user = await User.findById(req.params.id);
-  if (!user) return res.status(404).json({ message: 'User not found' });
+    // Create user
+    const user = await User.create({
+      full_name,
+      email,
+      password,
+      phone,
+      gender,
+      dob,
+      role,
+      custom_permissions,
+      national_id,
+      address,
+      department,
+      job_title,
+      branch,
+      status,
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
+    })
 
-  user.password = password;
-  await user.save();
+    res.status(201).json({
+      success: true,
+      data: user,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 
-  res.json({ message: 'Password updated successfully' });
-};
+// Update user
+export const updateUser = async (req, res, next) => {
+  try {
+    const {
+      full_name,
+      email,
+      phone,
+      gender,
+      dob,
+      role,
+      custom_permissions,
+      national_id,
+      address,
+      department,
+      job_title,
+      branch,
+      status,
+    } = req.body
+
+    // Check if email already exists for another user
+    if (email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: req.params.id } })
+      if (existingUser) {
+        return next(new ApiError("Email already in use", 400))
+      }
+    }
+
+    // Validate role if provided
+    if (role) {
+      const roleExists = await Role.findById(role)
+      if (!roleExists) {
+        return next(new ApiError("Invalid role", 400))
+      }
+    }
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        full_name,
+        email,
+        phone,
+        gender,
+        dob,
+        role,
+        custom_permissions,
+        national_id,
+        address,
+        department,
+        job_title,
+        branch,
+        status,
+        updatedBy: req.user.id,
+      },
+      { new: true, runValidators: true },
+    )
+      .populate("role", "name description")
+      .populate("custom_permissions", "key description")
+
+    if (!updatedUser) {
+      return next(new ApiError("User not found", 404))
+    }
+
+    res.status(200).json({
+      success: true,
+      data: updatedUser,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 
 // Delete user
-export const deleteUser = async (req, res) => {
-  const user = await User.findByIdAndDelete(req.params.id);
-  if (!user) return res.status(404).json({ message: 'User not found' });
+export const deleteUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
 
-  res.json({ message: 'User deleted successfully' });
-};
+    if (!user) {
+      return next(new ApiError("User not found", 404))
+    }
 
-// Change status
-export const updateUserStatus = async (req, res) => {
-  const { status } = req.body;
-  const user = await User.findById(req.params.id);
-  if (!user) return res.status(404).json({ message: 'User not found' });
+    // Prevent deleting yourself
+    if (user._id.toString() === req.user.id.toString()) {
+      return next(new ApiError("You cannot delete your own account", 400))
+    }
 
-  user.status = status;
-  await user.save();
+    await user.deleteOne()
 
-  res.json({ message: 'User status updated' });
-};
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 
-// Assign role
-export const assignRoleToUser = async (req, res) => {
-  const { roleId } = req.body;
-  const user = await User.findById(req.params.id);
-  const role = await Role.findById(roleId);
+// Update user status
+export const updateUserStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body
 
-  if (!user || !role) return res.status(404).json({ message: 'User or role not found' });
+    if (!["active", "inactive", "suspended"].includes(status)) {
+      return next(new ApiError("Invalid status", 400))
+    }
 
-  user.role = role._id;
-  await user.save();
+    const user = await User.findById(req.params.id)
 
-  res.json({ message: 'Role assigned' });
-};
+    if (!user) {
+      return next(new ApiError("User not found", 404))
+    }
 
-// Assign custom permissions
-export const assignCustomPermissions = async (req, res) => {
-  const { permissionIds } = req.body;
-  const user = await User.findById(req.params.id);
+    // Prevent changing your own status
+    if (user._id.toString() === req.user.id.toString()) {
+      return next(new ApiError("You cannot change your own status", 400))
+    }
 
-  if (!user) return res.status(404).json({ message: 'User not found' });
+    user.status = status
+    user.updatedBy = req.user.id
+    await user.save()
 
-  user.custom_permissions = permissionIds;
-  await user.save();
+    res.status(200).json({
+      success: true,
+      message: "User status updated successfully",
+      data: user,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 
-  res.json({ message: 'Permissions updated' });
-};
+// Assign role to user
+export const assignRoleToUser = async (req, res, next) => {
+  try {
+    const { roleId } = req.body
+
+    // Validate role
+    const role = await Role.findById(roleId)
+    if (!role) {
+      return next(new ApiError("Role not found", 404))
+    }
+
+    const user = await User.findById(req.params.id)
+    if (!user) {
+      return next(new ApiError("User not found", 404))
+    }
+
+    user.role = roleId
+    user.updatedBy = req.user.id
+    await user.save()
+
+    res.status(200).json({
+      success: true,
+      message: "Role assigned successfully",
+      data: {
+        userId: user._id,
+        role: role.name,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Assign custom permissions to user
+export const assignCustomPermissions = async (req, res, next) => {
+  try {
+    const { permissionIds } = req.body
+
+    if (!Array.isArray(permissionIds)) {
+      return next(new ApiError("Permission IDs must be an array", 400))
+    }
+
+    const user = await User.findById(req.params.id)
+    if (!user) {
+      return next(new ApiError("User not found", 404))
+    }
+
+    user.custom_permissions = permissionIds
+    user.updatedBy = req.user.id
+    await user.save()
+
+    await user.populate("custom_permissions", "key description")
+
+    res.status(200).json({
+      success: true,
+      message: "Custom permissions assigned successfully",
+      data: {
+        userId: user._id,
+        custom_permissions: user.custom_permissions,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Get user permissions
+export const getUserPermissions = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate({
+        path: "role",
+        populate: {
+          path: "permissions",
+          model: "Permission",
+        },
+      })
+      .populate("custom_permissions")
+
+    if (!user) {
+      return next(new ApiError("User not found", 404))
+    }
+
+    const effectivePermissions = await user.getEffectivePermissions()
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userId: user._id,
+        role: user.role ? { id: user.role._id, name: user.role.name } : null,
+        rolePermissions: user.role?.permissions || [],
+        customPermissions: user.custom_permissions || [],
+        effectivePermissions,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}

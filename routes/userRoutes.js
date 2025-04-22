@@ -1,27 +1,58 @@
-import express from 'express';
+import express from "express"
 import {
   getAllUsers,
   getUserById,
+  createUser,
   updateUser,
   deleteUser,
   updateUserStatus,
   assignRoleToUser,
-//   assignPermissionsToUser
-} from '../controllers/userController.js';
+  assignCustomPermissions,
+  getUserPermissions,
+} from "../controllers/userController.js"
+import { authenticate, authorize } from "../middleware/auth.js"
+import { validateObjectId, validateUserUpdate, validate } from "../middleware/validators.js"
 
-// import { isAuthenticated } from '../middlewares/authMiddleware.js';
-import { hasPermission } from '../middlewares/permissionMiddleware.js';
+const router = express.Router()
 
-const router = express.Router();
+// Apply authentication middleware to all routes
+router.use(authenticate)
 
-// router.use(isAuthenticated);
+// Get all users - Admin and managers only
+router.get("/", authorize(["manage_users", "view_all_data"]), getAllUsers)
 
-router.get('/',  getAllUsers);
-router.get('/:id', hasPermission('view_user_detail'), getUserById);
-router.put('/:id', hasPermission('edit_user'), updateUser);
-router.delete('/:id', hasPermission('delete_user'), deleteUser);
-router.patch('/:id/status', hasPermission('change_user_status'), updateUserStatus);
-router.patch('/:id/role', hasPermission('assign_role'), assignRoleToUser);
-// router.patch('/:id/permissions', hasPermission('assign_permissions'), assignPermissionsToUser);
+// Get user by ID
+router.get("/:id", validateObjectId("id"), authorize(["manage_users", "view_all_data"]), getUserById)
 
-export default router;
+// Create user - Admin only
+router.post("/", authorize(["manage_users"]), validateUserUpdate, validate, createUser)
+
+// Update user
+router.put("/:id", validateObjectId("id"), authorize(["manage_users"]), validateUserUpdate, validate, updateUser)
+
+// Delete user - Admin only
+router.delete("/:id", validateObjectId("id"), authorize(["manage_users"]), deleteUser)
+
+// Update user status - Admin only
+router.patch("/:id/status", validateObjectId("id"), authorize(["manage_users"]), updateUserStatus)
+
+// Assign role to user - Admin only
+router.patch("/:id/role", validateObjectId("id"), authorize(["manage_users", "manage_roles"]), assignRoleToUser)
+
+// Assign custom permissions to user - Admin only
+router.patch(
+  "/:id/permissions",
+  validateObjectId("id"),
+  authorize(["manage_users", "manage_roles"]),
+  assignCustomPermissions,
+)
+
+// Get user permissions
+router.get(
+  "/:id/permissions",
+  validateObjectId("id"),
+  authorize(["manage_users", "manage_roles", "view_all_data"]),
+  getUserPermissions,
+)
+
+export default router
