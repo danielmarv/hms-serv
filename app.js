@@ -25,42 +25,29 @@ import permissionRoutes from "./routes/permissionRoutes.js"
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
 
-// Load environment variables
 dotenv.config()
 
 const app = express()
 
-// Security middleware
-app.use(helmet()) // Set security HTTP headers
-app.use(cors()) // Enable CORS
-app.use(express.json({ limit: "10kb" })) // Body parser, reading data from body into req.body
+app.use(helmet())
+app.use(cors())
+app.use(express.json({ limit: "10kb" }))
 app.use(express.urlencoded({ extended: true, limit: "10kb" }))
-// app.use(
-//     mongoSanitize({
-//       replaceWith: "_", // replaces prohibited keys like $ or . with _
-//       onSanitize: ({ req, key }) => {
-//         console.warn(`Sanitized ${key} in request`)
-//       }
-//     })
-//   )
-  
-// app.use(xss()) // Data sanitization against XSS
-app.use(hpp()) // Prevent parameter pollution
-app.use(compression()) // Compress responses
+
+app.use(hpp())
+app.use(compression())
 
 // Development logging
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"))
 }
 
-// Rate limiting
 app.use("/api", apiLimiter)
 
 app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/analytics", analyticsRoutes)
 
-// Room management module routes
 app.use("/api/room-types", roomTypeRoutes)
 app.use("/api/rooms", roomRoutes)
 app.use("/api/roles", roleRoutes)
@@ -68,23 +55,17 @@ app.use("/api/maintenance", maintenanceRoutes)
 app.use("/api/housekeeping", housekeepingRoutes)
 app.use("/api/permissions", permissionRoutes)
 
-// Guest and booking management module routes
 app.use("/api/guests", guestRoutes)
 app.use("/api/bookings", bookingRoutes)
 
-// Finance module routes
 app.use("/api/invoices", invoiceRoutes)
 app.use("/api/payments", paymentRoutes)
 
-// Inventory management module routes
 app.use("/api/inventory", inventoryRoutes)
 app.use("/api/suppliers", supplierRoutes)
 
-// Restaurant management module routes
 app.use("/api/restaurant", restaurantRoutes)
 
-
-// API health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -94,8 +75,6 @@ app.get("/api/health", (req, res) => {
   })
 })
 
-
-// Error handling middleware
 app.use(errorHandler)
 
 export default app
