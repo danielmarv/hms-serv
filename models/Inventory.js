@@ -28,6 +28,7 @@ const inventoryItemSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
+      // Remove index: true if it exists
     },
     barcode: String,
     unit: {
@@ -96,7 +97,10 @@ const inventoryItemSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    suppressReservedKeysWarning: true,
+  },
 )
 
 // Generate SKU if not provided
@@ -135,7 +139,7 @@ inventoryItemSchema.virtual("stockStatus").get(function () {
   }
 })
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 inventoryItemSchema.index({ category: 1 })
 inventoryItemSchema.index({ sku: 1 }, { unique: true, sparse: true })
 inventoryItemSchema.index({ name: 1 })

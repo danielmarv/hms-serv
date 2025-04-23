@@ -2,15 +2,19 @@ import express from 'express';
 import {
   createPermission,
   getPermissions,
+  updatePermission,
   deletePermission
 } from '../controllers/permissionController.js';
 
-// import { protect, isAdmin } from '../middlewares/authMiddleware.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/', createPermission);
-router.get('/', getPermissions);
+
+router.use(authenticate)
+router.post('/',  createPermission);
+router.get('/',  getPermissions);
+router.patch('/:id',  updatePermission);
 router.delete('/:id', deletePermission);
 
 export default router;

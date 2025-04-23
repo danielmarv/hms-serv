@@ -22,6 +22,7 @@ const paymentSchema = new mongoose.Schema(
     paymentNumber: {
       type: String,
       unique: true,
+      // Remove index: true if it exists
     },
     amountPaid: {
       type: Number,
@@ -111,7 +112,10 @@ const paymentSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    suppressReservedKeysWarning: true,
+  },
 )
 
 // Generate payment number before saving
@@ -162,7 +166,7 @@ paymentSchema.pre("save", async function (next) {
   next()
 })
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 paymentSchema.index({ invoice: 1 })
 paymentSchema.index({ booking: 1 })
 paymentSchema.index({ order: 1 })

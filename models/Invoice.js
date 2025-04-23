@@ -15,6 +15,7 @@ const invoiceSchema = new mongoose.Schema(
       type: String,
       unique: true,
       required: true,
+      // Remove index: true if it exists
     },
     issuedDate: {
       type: Date,
@@ -128,7 +129,10 @@ const invoiceSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    suppressReservedKeysWarning: true,
+  },
 )
 
 // Calculate item totals before saving
@@ -186,7 +190,7 @@ invoiceSchema.pre("save", async function (next) {
   next()
 })
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 invoiceSchema.index({ guest: 1 })
 invoiceSchema.index({ booking: 1 })
 invoiceSchema.index({ invoiceNumber: 1 }, { unique: true })

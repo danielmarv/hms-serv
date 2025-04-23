@@ -1,58 +1,52 @@
 import jwt from "jsonwebtoken"
 import User from "../models/User.js"
 import { ApiError } from "../utils/apiError.js"
+import '../models/Permission.js'
 
 // Authenticate user with JWT
 export const authenticate = async (req, res, next) => {
   try {
-    // Get token from header
     const authHeader = req.headers.authorization
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null
 
-    // Check if token exists
     if (!token) {
       return next(new ApiError("Not authorized, no token provided", 401))
     }
 
+    let decoded
     try {
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-      // Find user by id
-      const user = await User.findById(decoded.id)
-        .select("-password")
-        .populate({
-          path: "role",
-          populate: {
-            path: "permissions",
-            model: "Permission",
-          },
-        })
-        .populate("custom_permissions")
-
-      // Check if user exists
-      if (!user) {
-        return next(new ApiError("Not authorized, user not found", 401))
-      }
-
-      // Check if user is active
-      if (user.status !== "active") {
-        return next(new ApiError("Account is inactive or suspended", 403))
-      }
-
-      // Set user in request
-      req.user = user
-      next()
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return next(new ApiError("Token expired", 401))
-      }
+      decoded = jwt.verify(token, process.env.JWT_SECRET)
+    } catch (err) {
       return next(new ApiError("Not authorized, invalid token", 401))
     }
+
+    const user = await User.findById(decoded.id)
+      .select("-password")
+      .populate({
+        path: "role",
+        populate: {
+          path: "permissions",
+          model: "Permission",
+        },
+      })
+      .populate("custom_permissions")
+
+    if (!user) {
+      return next(new ApiError("Not authorized, user not found", 401))
+    }
+
+    if (user.status !== "active") {
+      return next(new ApiError("Account is inactive or suspended", 403))
+    }
+
+    req.user = user
+    next()
   } catch (error) {
+    console.error("🔥 Auth Middleware Error:", error)
     next(error)
   }
 }
+
 
 // Authorize based on roles
 export const authorizeRoles = (...roles) => {

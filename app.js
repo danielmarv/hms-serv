@@ -2,8 +2,6 @@ import express from "express"
 import cors from "cors"
 import helmet from "helmet"
 import morgan from "morgan"
-import mongoSanitize from "express-mongo-sanitize"
-import xss from "xss-clean"
 import hpp from "hpp"
 import compression from "compression"
 import dotenv from "dotenv"
@@ -20,6 +18,9 @@ import paymentRoutes from "./routes/paymentRoutes.js"
 import inventoryRoutes from "./routes/inventoryRoutes.js"
 import supplierRoutes from "./routes/supplierRoutes.js"
 import restaurantRoutes from "./routes/restaurantRoutes.js"
+import analyticsRoutes from "./routes/analyticsRoutes.js"
+import roleRoutes from "./routes/roleRoutes.js"
+import permissionRoutes from "./routes/permissionRoutes.js"
 
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
@@ -57,12 +58,15 @@ app.use("/api", apiLimiter)
 
 app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
+app.use("/api/analytics", analyticsRoutes)
 
 // Room management module routes
 app.use("/api/room-types", roomTypeRoutes)
 app.use("/api/rooms", roomRoutes)
+app.use("/api/roles", roleRoutes)
 app.use("/api/maintenance", maintenanceRoutes)
 app.use("/api/housekeeping", housekeepingRoutes)
+app.use("/api/permissions", permissionRoutes)
 
 // Guest and booking management module routes
 app.use("/api/guests", guestRoutes)
@@ -79,6 +83,7 @@ app.use("/api/suppliers", supplierRoutes)
 // Restaurant management module routes
 app.use("/api/restaurant", restaurantRoutes)
 
+
 // API health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -88,8 +93,6 @@ app.get("/api/health", (req, res) => {
     environment: process.env.NODE_ENV,
   })
 })
-
-
 
 
 // Error handling middleware

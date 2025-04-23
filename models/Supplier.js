@@ -11,6 +11,7 @@ const supplierSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
+      // Remove index: true if it exists
     },
     contact_person: {
       type: String,
@@ -102,7 +103,10 @@ const supplierSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    suppressReservedKeysWarning: true,
+  },
 )
 
 // Generate supplier code if not provided
@@ -143,7 +147,7 @@ supplierSchema.virtual("full_address").get(function () {
   return parts.join(", ")
 })
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 supplierSchema.index({ name: 1 })
 supplierSchema.index({ code: 1 }, { unique: true, sparse: true })
 supplierSchema.index({ is_active: 1 })

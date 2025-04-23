@@ -48,6 +48,7 @@ const orderSchema = new mongoose.Schema(
     orderNumber: {
       type: String,
       unique: true,
+      // Remove index: true if it exists
     },
     table: {
       type: mongoose.Schema.Types.ObjectId,
@@ -145,7 +146,7 @@ const orderSchema = new mongoose.Schema(
     completedAt: Date,
     cancelledAt: Date,
     cancellationReason: String,
-    isModified: {
+    wasModified: {
       type: Boolean,
       default: false,
     },
@@ -160,7 +161,10 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    suppressReservedKeysWarning: true,
+  },
 )
 
 // Generate order number before saving
@@ -247,7 +251,7 @@ orderSchema.pre("save", function (next) {
   next()
 })
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 orderSchema.index({ orderNumber: 1 }, { unique: true })
 orderSchema.index({ table: 1 })
 orderSchema.index({ room: 1 })

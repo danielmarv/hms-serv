@@ -1,50 +1,87 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose"
 
-const roomTypeSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true, trim: true },
-  description: String,
-
-  // Pricing
-  base_price: { type: Number, required: true },
-  weekend_price: Number,
-  holiday_price: Number,
-  hourly_rate: Number,
-  currency: { type: String, default: 'USD' },
-
-  // Configuration
-  max_occupancy: Number,
-  number_of_beds: Number,
-  bed_type: {
-    type: String,
-    enum: ['single', 'double', 'queen', 'king', 'twin', 'sofa', 'bunk']
+const roomTypeSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Room type name is required"],
+      unique: true,
+      trim: true,
+      // Remove index: true if it exists
+    },
+    description: {
+      type: String,
+      required: [true, "Description is required"],
+    },
+    capacity: {
+      adults: {
+        type: Number,
+        required: [true, "Adult capacity is required"],
+        min: [1, "Adult capacity must be at least 1"],
+      },
+      children: {
+        type: Number,
+        default: 0,
+      },
+    },
+    basePrice: {
+      type: Number,
+      required: [true, "Base price is required"],
+      min: [0, "Base price cannot be negative"],
+    },
+    amenities: [
+      {
+        type: String,
+      },
+    ],
+    images: [
+      {
+        type: String,
+      },
+    ],
+    size: {
+      type: Number, // in square feet/meters
+      required: [true, "Room size is required"],
+    },
+    bedConfiguration: {
+      type: String,
+      required: [true, "Bed configuration is required"],
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    maxOccupancy: {
+      type: Number,
+      required: [true, "Maximum occupancy is required"],
+    },
   },
-
-  // Amenities
-  amenities: [String],
-  has_balcony: Boolean,
-  has_kitchen: Boolean,
-  is_pet_friendly: Boolean,
-  has_wifi: Boolean,
-  has_tv: Boolean,
-  has_air_conditioning: Boolean,
-  has_workspace: Boolean,
-
-  // Category
-  category: {
-    type: String,
-    enum: ['standard', 'deluxe', 'suite', 'presidential', 'family', 'studio']
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+    suppressReservedKeysWarning: true,
   },
+)
 
-  // Group Pricing
-  group_pricing: [
-    {
-      group_name: String,
-      custom_price: Number
-    }
-  ],
+// Virtual for rooms of this type
+roomTypeSchema.virtual("rooms", {
+  ref: "Room",
+  localField: "_id",
+  foreignField: "roomType",
+})
 
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-}, { timestamps: true });
+// Virtual for available rooms count
+roomTypeSchema.virtual("availableRoomsCount").get(function () {
+  if (!this.rooms) return 0
+  return this.rooms.filter((room) => room.status === "available").length
+})
 
-export default mongoose.model('RoomType', roomTypeSchema);
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
+roomTypeSchema.index({ name: 1 })
+roomTypeSchema.index({ basePrice: 1 })
+roomTypeSchema.index({ isActive: 1 })
+
+const RoomType = mongoose.model("RoomType", roomTypeSchema)
+
+export default RoomType
