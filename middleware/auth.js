@@ -9,9 +9,6 @@ export const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null
 
-    console.log("🔐 Received Token:", token)
-    console.log("🔑 JWT_SECRET:", process.env.JWT_SECRET)
-
     if (!token) {
       return next(new ApiError("Not authorized, no token provided", 401))
     }
@@ -19,9 +16,7 @@ export const authenticate = async (req, res, next) => {
     let decoded
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET)
-      console.log("✅ Decoded Token:", decoded)
     } catch (err) {
-      console.error("❌ JWT Verification Error:", err)
       return next(new ApiError("Not authorized, invalid token", 401))
     }
 
