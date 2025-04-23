@@ -19,17 +19,14 @@ export const verifyRefreshToken = (token) => {
   return jwt.verify(token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET)
 }
 
-// Blacklist a token
 export const blacklistToken = (token) => {
   tokenBlacklist.add(token)
 }
 
-// Check if token is blacklisted
 export const isTokenBlacklisted = (token) => {
   return tokenBlacklist.has(token)
 }
 
-// Generate password reset token
 export const generateResetToken = () => {
   const resetToken = crypto.randomBytes(32).toString("hex")
   const hash = crypto.createHash("sha256").update(resetToken).digest("hex")
@@ -37,11 +34,10 @@ export const generateResetToken = () => {
   return {
     resetToken,
     hash,
-    expires: Date.now() + 30 * 60 * 1000, // 30 minutes
+    expires: Date.now() + 30 * 60 * 1000,
   }
 }
 
-// Generate email verification token
 export const generateVerificationToken = () => {
   const verificationToken = crypto.randomBytes(32).toString("hex")
   const hash = crypto.createHash("sha256").update(verificationToken).digest("hex")
@@ -49,6 +45,6 @@ export const generateVerificationToken = () => {
   return {
     verificationToken,
     hash,
-    expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    expires: Date.now() + 24 * 60 * 60 * 1000,
   }
 }
