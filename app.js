@@ -2,8 +2,6 @@ import express from "express"
 import cors from "cors"
 import helmet from "helmet"
 import morgan from "morgan"
-import mongoSanitize from "express-mongo-sanitize"
-import xss from "xss-clean"
 import hpp from "hpp"
 import compression from "compression"
 import dotenv from "dotenv"
@@ -21,6 +19,8 @@ import inventoryRoutes from "./routes/inventoryRoutes.js"
 import supplierRoutes from "./routes/supplierRoutes.js"
 import restaurantRoutes from "./routes/restaurantRoutes.js"
 import analyticsRoutes from "./routes/analyticsRoutes.js"
+import roleRoutes from "./routes/roleRoutes.js"
+import permissionRoutes from "./routes/permissionRoutes.js"
 
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
@@ -63,8 +63,10 @@ app.use("/api/analytics", analyticsRoutes)
 // Room management module routes
 app.use("/api/room-types", roomTypeRoutes)
 app.use("/api/rooms", roomRoutes)
+app.use("/api/roles", roleRoutes)
 app.use("/api/maintenance", maintenanceRoutes)
 app.use("/api/housekeeping", housekeepingRoutes)
+app.use("/api/permissions", permissionRoutes)
 
 // Guest and booking management module routes
 app.use("/api/guests", guestRoutes)
