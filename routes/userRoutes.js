@@ -33,7 +33,6 @@ router.put("/:id", validateObjectId("id"), authorize(["manage_users"]), validate
 // Delete user - Admin only
 router.delete("/:id", validateObjectId("id"), authorize(["manage_users"]), deleteUser)
 
-// Update user status - Admin only
 router.patch("/:id/status", validateObjectId("id"), authorize(["manage_users"]), updateUserStatus)
 
 // Assign role to user - Admin only

@@ -7,6 +7,7 @@ const roomTypeSchema = new mongoose.Schema(
       required: [true, "Room type name is required"],
       unique: true,
       trim: true,
+      // Removed index: true since we're using schema.index() below
     },
     description: {
       type: String,

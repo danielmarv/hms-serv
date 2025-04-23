@@ -11,6 +11,7 @@ const supplierSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
+      // Removed index: true since we're using schema.index() below
     },
     contact_person: {
       type: String,

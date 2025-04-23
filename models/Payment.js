@@ -22,6 +22,7 @@ const paymentSchema = new mongoose.Schema(
     paymentNumber: {
       type: String,
       unique: true,
+      // Removed index: true since we're using schema.index() below
     },
     amountPaid: {
       type: Number,

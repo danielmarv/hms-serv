@@ -15,6 +15,7 @@ const invoiceSchema = new mongoose.Schema(
       type: String,
       unique: true,
       required: true,
+      // Removed index: true since we're using schema.index() below
     },
     issuedDate: {
       type: Date,

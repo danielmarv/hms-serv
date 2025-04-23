@@ -27,9 +27,13 @@ const bookingSchema = new mongoose.Schema(
     },
     cancellation_reason: String,
     cancellation_date: Date,
-    is_modified: { type: Boolean, default: false },
+    was_modified: { type: Boolean, default: false }, // Changed from is_modified
     modification_notes: String,
-    confirmation_number: { type: String, unique: true },
+    confirmation_number: {
+      type: String,
+      unique: true,
+      // Removed index: true since we're using schema.index() below
+    },
     rate_plan: { type: mongoose.Schema.Types.ObjectId, ref: "CustomPrice" },
     additional_charges: [
       {

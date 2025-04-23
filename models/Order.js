@@ -48,6 +48,7 @@ const orderSchema = new mongoose.Schema(
     orderNumber: {
       type: String,
       unique: true,
+      // Removed index: true since we're using schema.index() below
     },
     table: {
       type: mongoose.Schema.Types.ObjectId,
@@ -145,7 +146,8 @@ const orderSchema = new mongoose.Schema(
     completedAt: Date,
     cancelledAt: Date,
     cancellationReason: String,
-    isModified: {
+    wasModified: {
+      // Changed from isModified
       type: Boolean,
       default: false,
     },
