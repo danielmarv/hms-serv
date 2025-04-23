@@ -42,7 +42,6 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"))
 }
 
-// Rate limiting
 app.use("/api", apiLimiter)
 
 app.use("/api/auth", authRoutes)
