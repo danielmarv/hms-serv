@@ -61,7 +61,6 @@ app.use("/api/bookings", bookingRoutes)
 app.use("/api/invoices", invoiceRoutes)
 app.use("/api/payments", paymentRoutes)
 
-// Inventory management module routes
 app.use("/api/inventory", inventoryRoutes)
 app.use("/api/suppliers", supplierRoutes)
 
