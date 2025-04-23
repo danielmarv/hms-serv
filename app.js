@@ -29,7 +29,7 @@ dotenv.config()
 
 const app = express()
 
-app.use(helmet()) // Set security HTTP headers
+app.use(helmet())
 app.use(cors()) // Enable CORS
 app.use(express.json({ limit: "10kb" })) // Body parser, reading data from body into req.body
 app.use(express.urlencoded({ extended: true, limit: "10kb" }))
