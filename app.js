@@ -34,7 +34,6 @@ app.use(cors())
 app.use(express.json({ limit: "10kb" }))
 app.use(express.urlencoded({ extended: true, limit: "10kb" }))
 
-// app.use(xss()) // Data sanitization against XSS
 app.use(hpp()) // Prevent parameter pollution
 app.use(compression()) // Compress responses
 
