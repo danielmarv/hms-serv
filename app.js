@@ -58,7 +58,6 @@ app.use("/api/permissions", permissionRoutes)
 app.use("/api/guests", guestRoutes)
 app.use("/api/bookings", bookingRoutes)
 
-// Finance module routes
 app.use("/api/invoices", invoiceRoutes)
 app.use("/api/payments", paymentRoutes)
 
