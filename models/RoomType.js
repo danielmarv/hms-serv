@@ -7,7 +7,7 @@ const roomTypeSchema = new mongoose.Schema(
       required: [true, "Room type name is required"],
       unique: true,
       trim: true,
-      // Removed index: true since we're using schema.index() below
+      // Remove index: true if it exists
     },
     description: {
       type: String,
@@ -60,6 +60,7 @@ const roomTypeSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
+    suppressReservedKeysWarning: true,
   },
 )
 
@@ -76,7 +77,7 @@ roomTypeSchema.virtual("availableRoomsCount").get(function () {
   return this.rooms.filter((room) => room.status === "available").length
 })
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 roomTypeSchema.index({ name: 1 })
 roomTypeSchema.index({ basePrice: 1 })
 roomTypeSchema.index({ isActive: 1 })

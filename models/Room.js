@@ -7,7 +7,7 @@ const roomSchema = new mongoose.Schema(
       required: [true, "Room number is required"],
       unique: true,
       trim: true,
-      // Removed index: true since we're using schema.index() below
+      // Remove index: true if it exists
     },
     roomType: {
       type: mongoose.Schema.Types.ObjectId,
@@ -62,6 +62,7 @@ const roomSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
+    suppressReservedKeysWarning: true,
   },
 )
 
@@ -78,7 +79,7 @@ roomSchema.virtual("currentBooking", {
   },
 })
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 roomSchema.index({ roomNumber: 1 })
 roomSchema.index({ roomType: 1 })
 roomSchema.index({ status: 1 })

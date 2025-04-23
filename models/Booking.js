@@ -27,12 +27,12 @@ const bookingSchema = new mongoose.Schema(
     },
     cancellation_reason: String,
     cancellation_date: Date,
-    was_modified: { type: Boolean, default: false }, // Changed from is_modified
+    was_modified: { type: Boolean, default: false },
     modification_notes: String,
     confirmation_number: {
       type: String,
       unique: true,
-      // Removed index: true since we're using schema.index() below
+      // Remove index: true if it exists
     },
     rate_plan: { type: mongoose.Schema.Types.ObjectId, ref: "CustomPrice" },
     additional_charges: [
@@ -68,10 +68,13 @@ const bookingSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    suppressReservedKeysWarning: true,
+  },
 )
 
-// Indexes for faster queries
+// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 bookingSchema.index({ guest: 1 })
 bookingSchema.index({ room: 1 })
 bookingSchema.index({ check_in: 1, check_out: 1 })
