@@ -20,6 +20,7 @@ import paymentRoutes from "./routes/paymentRoutes.js"
 import inventoryRoutes from "./routes/inventoryRoutes.js"
 import supplierRoutes from "./routes/supplierRoutes.js"
 import restaurantRoutes from "./routes/restaurantRoutes.js"
+import analyticsRoutes from "./routes/analyticsRoutes.js"
 
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
@@ -57,6 +58,7 @@ app.use("/api", apiLimiter)
 
 app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
+app.use("/api/analytics", analyticsRoutes)
 
 // Room management module routes
 app.use("/api/room-types", roomTypeRoutes)
@@ -78,6 +80,7 @@ app.use("/api/suppliers", supplierRoutes)
 
 // Restaurant management module routes
 app.use("/api/restaurant", restaurantRoutes)
+
 
 // API health check endpoint
 app.get("/api/health", (req, res) => {
