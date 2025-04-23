@@ -1,21 +1,19 @@
 import nodemailer from "nodemailer"
 
-// Check if the transporter is properly configured before sending email
 export const sendEmail = async (options) => {
   try {
     // Create a transporter
     const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
+      service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-    })
+    });
 
     // Define email options
     const mailOptions = {
-      from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM_ADDRESS}>`,
+      from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_USER}>`,
       to: options.email,
       subject: options.subject,
       text: options.message,

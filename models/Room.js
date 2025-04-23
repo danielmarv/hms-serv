@@ -1,40 +1,88 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose"
 
-const roomSchema = new mongoose.Schema({
-  number: { type: String, required: true, unique: true },
-  room_type: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomType', required: true },
-
-  floor: String,
-  building: String,
-  view: {
-    type: String,
-    enum: ['sea', 'mountain', 'city', 'garden', 'courtyard', 'none']
+const roomSchema = new mongoose.Schema(
+  {
+    roomNumber: {
+      type: String,
+      required: [true, "Room number is required"],
+      unique: true,
+      trim: true,
+    },
+    roomType: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RoomType",
+      required: [true, "Room type is required"],
+    },
+    floor: {
+      type: Number,
+      required: [true, "Floor number is required"],
+    },
+    status: {
+      type: String,
+      enum: ["available", "occupied", "maintenance", "cleaning", "reserved"],
+      default: "available",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    amenities: [
+      {
+        type: String,
+      },
+    ],
+    notes: {
+      type: String,
+    },
+    lastCleaned: {
+      type: Date,
+    },
+    maintenanceHistory: [
+      {
+        issue: {
+          type: String,
+          required: true,
+        },
+        reportedDate: {
+          type: Date,
+          default: Date.now,
+        },
+        resolvedDate: {
+          type: Date,
+        },
+        cost: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
   },
-
-  is_smoking_allowed: { type: Boolean, default: false },
-  is_accessible: { type: Boolean, default: false },
-
-  status: {
-    type: String,
-    enum: ['available', 'occupied', 'maintenance', 'cleaning', 'reserved', 'out_of_order'],
-    default: 'available'
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
+)
 
-  price_override: Number,
-
-  minibar_items: [String],
-  connected_rooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }],
-  branch: String,
-
-  has_smart_lock: Boolean,
-  automation_settings: {
-    air_conditioner: Boolean,
-    smart_lighting: Boolean,
-    keyless_entry: Boolean
+// Virtual for current booking
+roomSchema.virtual("currentBooking", {
+  ref: "Booking",
+  localField: "_id",
+  foreignField: "room",
+  justOne: true,
+  match: {
+    status: { $in: ["confirmed", "checked-in"] },
+    checkInDate: { $lte: new Date() },
+    checkOutDate: { $gt: new Date() },
   },
+})
 
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-}, { timestamps: true });
+// Indexes for faster queries
+roomSchema.index({ roomNumber: 1 })
+roomSchema.index({ roomType: 1 })
+roomSchema.index({ status: 1 })
+roomSchema.index({ floor: 1 })
 
-export default mongoose.model('Room', roomSchema);
+const Room = mongoose.model("Room", roomSchema)
+
+export default Room
