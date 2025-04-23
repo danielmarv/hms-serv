@@ -48,7 +48,6 @@ app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/analytics", analyticsRoutes)
 
-// Room management module routes
 app.use("/api/room-types", roomTypeRoutes)
 app.use("/api/rooms", roomRoutes)
 app.use("/api/roles", roleRoutes)
@@ -56,7 +55,6 @@ app.use("/api/maintenance", maintenanceRoutes)
 app.use("/api/housekeeping", housekeepingRoutes)
 app.use("/api/permissions", permissionRoutes)
 
-// Guest and booking management module routes
 app.use("/api/guests", guestRoutes)
 app.use("/api/bookings", bookingRoutes)
 
