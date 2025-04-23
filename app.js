@@ -25,25 +25,15 @@ import permissionRoutes from "./routes/permissionRoutes.js"
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
 
-// Load environment variables
 dotenv.config()
 
 const app = express()
 
-// Security middleware
 app.use(helmet()) // Set security HTTP headers
 app.use(cors()) // Enable CORS
 app.use(express.json({ limit: "10kb" })) // Body parser, reading data from body into req.body
 app.use(express.urlencoded({ extended: true, limit: "10kb" }))
-// app.use(
-//     mongoSanitize({
-//       replaceWith: "_", // replaces prohibited keys like $ or . with _
-//       onSanitize: ({ req, key }) => {
-//         console.warn(`Sanitized ${key} in request`)
-//       }
-//     })
-//   )
-  
+
 // app.use(xss()) // Data sanitization against XSS
 app.use(hpp()) // Prevent parameter pollution
 app.use(compression()) // Compress responses
