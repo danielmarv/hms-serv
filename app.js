@@ -34,8 +34,8 @@ app.use(cors())
 app.use(express.json({ limit: "10kb" }))
 app.use(express.urlencoded({ extended: true, limit: "10kb" }))
 
-app.use(hpp()) // Prevent parameter pollution
-app.use(compression()) // Compress responses
+app.use(hpp())
+app.use(compression())
 
 // Development logging
 if (process.env.NODE_ENV === "development") {
