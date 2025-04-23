@@ -64,11 +64,8 @@ app.use("/api/payments", paymentRoutes)
 app.use("/api/inventory", inventoryRoutes)
 app.use("/api/suppliers", supplierRoutes)
 
-// Restaurant management module routes
 app.use("/api/restaurant", restaurantRoutes)
 
-
-// API health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -78,8 +75,6 @@ app.get("/api/health", (req, res) => {
   })
 })
 
-
-// Error handling middleware
 app.use(errorHandler)
 
 export default app
