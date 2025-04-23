@@ -1,8 +1,8 @@
 import Hotel from "../models/Hotel.js"
 import Configuration from "../models/Configuration.js"
 import SetupWizard from "../models/SetupWizard.js"
-import SharedConfiguration from "../models/shared-configuration.tsx"
-import UserHotelAccess from "../models/user-hotel-access.tsx"
+import SharedConfiguration from "../models/SharedConfiguration.js"
+import UserHotelAccess from "../models/userHotelAccess.js"
 import { ApiError } from "../utils/apiError.js"
 
 // Get all hotels with optional filtering

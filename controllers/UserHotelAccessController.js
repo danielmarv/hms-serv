@@ -1,4 +1,4 @@
-import UserHotelAccess from "../models/user-hotel-access.tsx"
+import UserHotelAccess from "../models/userHotelAccess.js"
 import User from "../models/User.js"
 import Hotel from "../models/Hotel.js"
 import { ApiError } from "../utils/apiError.js"
