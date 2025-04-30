@@ -13,13 +13,13 @@ const router = express.Router()
 router.use(authenticate)
 
 // Get users with access across multiple hotels in a chain
-router.get("/chains/:chainCode/users", authorize(["manage_users", "view_all_data"]), getCrossHotelUsers)
+router.get("/:chainCode/users", authorize(["manage_users", "view_all_data"]), getCrossHotelUsers)
 
 // Grant user access to all hotels in a chain
-router.post("/chains/:chainCode/users", authorize(["manage_users"]), grantChainAccess)
+router.post("/:chainCode/users", authorize(["manage_users"]), grantChainAccess)
 
 // Revoke user access from all hotels in a chain
-router.delete("/chains/:chainCode/users/:userId", authorize(["manage_users"]), revokeChainAccess)
+router.delete("/:chainCode/users/:userId", authorize(["manage_users"]), revokeChainAccess)
 
 // Get users with access to a specific hotel
 router.get("/hotels/:hotelId/users", authorize(["manage_users", "view_all_data"]), getHotelUsers)
