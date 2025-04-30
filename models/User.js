@@ -203,5 +203,63 @@ userSchema.methods.resetLoginAttempts = async function () {
   await this.save()
 }
 
+// New method to check if user has access to a specific hotel
+userSchema.methods.hasHotelAccess = async function (hotelId) {
+  try {
+    // If user is super admin, they have access to all hotels
+    if (this.role && (await this.isSuperAdmin())) {
+      return true
+    }
+
+    // Check user's hotel access (assuming userHotelAccess model exists)
+    const UserHotelAccess = mongoose.model("UserHotelAccess")
+    const access = await UserHotelAccess.findOne({
+      user: this._id,
+      hotel: hotelId,
+    })
+
+    return !!access
+  } catch (error) {
+    console.error("Error checking hotel access:", error)
+    return false
+  }
+}
+
+// New method to check if user has specific permissions for a hotel
+userSchema.methods.hasHotelPermission = async function (hotelId, requiredPermissions) {
+  try {
+    // If user is super admin, they have all permissions
+    if (await this.isSuperAdmin()) {
+      return true
+    }
+
+    // Get user's effective permissions
+    const effectivePermissions = await this.getEffectivePermissions()
+
+    // Convert to array if string
+    const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions]
+
+    // Check if user has all required permissions
+    return permissions.every((p) => effectivePermissions.includes(p))
+  } catch (error) {
+    console.error("Error checking hotel permissions:", error)
+    return false
+  }
+}
+
+// Helper method to check if user is a super admin
+userSchema.methods.isSuperAdmin = async function () {
+  try {
+    if (!this.populated("role")) {
+      await this.populate("role")
+    }
+
+    return this.role && this.role.name === "super admin"
+  } catch (error) {
+    console.error("Error checking super admin status:", error)
+    return false
+  }
+}
+
 const User = mongoose.model("User", userSchema)
 export default User
