@@ -361,7 +361,6 @@ userSchema.methods.isAdmin = function () {
 
 // Check if user has specific permission for a hotel
 userSchema.methods.hasPermissionForHotel = async function (permission, hotelId) {
-  // If user is a global admin, they have all permissions
   if (this.is_global_admin || (this.role && ["super admin", "admin"].includes(this.role.name))) {
     return true
   }
