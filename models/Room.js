@@ -79,7 +79,6 @@ roomSchema.virtual("currentBooking", {
   },
 })
 
-// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 roomSchema.index({ roomNumber: 1 })
 roomSchema.index({ roomType: 1 })
 roomSchema.index({ status: 1 })
