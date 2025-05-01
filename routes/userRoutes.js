@@ -9,11 +9,8 @@ import {
   assignRoleToUser,
   assignCustomPermissions,
   getUserPermissions,
-  assignHotelAccess,
-  removeHotelAccess,
-  getUserHotelAccess,
 } from "../controllers/userController.js"
-import { authenticate, authorize, isAdmin, requireHotelContext } from "../middleware/auth.js"
+import { authenticate, authorize } from "../middleware/auth.js"
 import { validateObjectId, validateUserUpdate, validate } from "../middleware/validators.js"
 
 const router = express.Router()
@@ -21,26 +18,40 @@ const router = express.Router()
 // Apply authentication middleware to all routes
 router.use(authenticate)
 
-// Global user management routes (admin only)
-router.get("/", isAdmin, getAllUsers)
-router.post("/", isAdmin, validateUserUpdate, validate, createUser)
-router.get("/:id", validateObjectId("id"), isAdmin, getUserById)
-router.put("/:id", validateObjectId("id"), isAdmin, validateUserUpdate, validate, updateUser)
-router.delete("/:id", validateObjectId("id"), isAdmin, deleteUser)
-router.patch("/:id/status", validateObjectId("id"), isAdmin, updateUserStatus)
+// Get all users - Admin and managers only
+router.get("/", authorize(["manage_users", "view_all_data"]), getAllUsers)
 
-// Role and permission management
-router.patch("/:id/role", validateObjectId("id"), isAdmin, assignRoleToUser)
-router.patch("/:id/permissions", validateObjectId("id"), isAdmin, assignCustomPermissions)
-router.get("/:id/permissions", validateObjectId("id"), isAdmin, getUserPermissions)
+// Get user by ID
+router.get("/:id", validateObjectId("id"), authorize(["manage_users", "view_all_data"]), getUserById)
 
-// Hotel access management
-router.post("/:id/hotel-access", validateObjectId("id"), isAdmin, assignHotelAccess)
-router.delete("/:id/hotel-access/:hotelId", validateObjectId("id"), isAdmin, removeHotelAccess)
-router.get("/:id/hotel-access", validateObjectId("id"), isAdmin, getUserHotelAccess)
+// Create user - Admin only
+router.post("/", authorize(["manage_users"]), validateUserUpdate, validate, createUser)
 
-// Hotel-specific user management routes
-router.get("/hotel", requireHotelContext(), authorize("user.view"), getAllUsers) // With hotel filter
-router.post("/hotel", requireHotelContext(), authorize("user.create"), validateUserUpdate, validate, createUser) // With hotel context
+// Update user
+router.put("/:id", validateObjectId("id"), authorize(["manage_users"]), validateUserUpdate, validate, updateUser)
+
+// Delete user - Admin only
+router.delete("/:id", validateObjectId("id"), authorize(["manage_users"]), deleteUser)
+
+router.patch("/:id/status", validateObjectId("id"), authorize(["manage_users"]), updateUserStatus)
+
+// Assign role to user - Admin only
+router.patch("/:id/role", validateObjectId("id"), authorize(["manage_users", "manage_roles"]), assignRoleToUser)
+
+// Assign custom permissions to user - Admin only
+router.patch(
+  "/:id/permissions",
+  validateObjectId("id"),
+  authorize(["manage_users", "manage_roles"]),
+  assignCustomPermissions,
+)
+
+// Get user permissions
+router.get(
+  "/:id/permissions",
+  validateObjectId("id"),
+  authorize(["manage_users", "manage_roles", "view_all_data"]),
+  getUserPermissions,
+)
 
 export default router
