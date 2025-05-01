@@ -40,7 +40,7 @@ const roomTypeSchema = new mongoose.Schema(
       },
     ],
     size: {
-      type: Number, // in square feet/meters
+      type: Number,
       required: [true, "Room size is required"],
     },
     bedConfiguration: {
