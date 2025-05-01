@@ -207,17 +207,17 @@ export const validatePasswordChange = [
 // Create room type validation
 export const validateCreateRoomType = [
   body("name").trim().notEmpty().withMessage("Room type name is required"),
-  body("base_price").isNumeric().withMessage("Base price must be a number").toFloat(),
+  body("basePrice").isNumeric().withMessage("Base price must be a number").toFloat(),
   body("category").trim().notEmpty().withMessage("Category is required"),
-  body("max_occupancy").isInt({ min: 1 }).withMessage("Maximum occupancy must be at least 1").toInt(),
+  body("maxOccupancy").isInt({ min: 1 }).withMessage("Maximum occupancy must be at least 1").toInt(),
 ]
 
 // Update room type validation
 export const validateUpdateRoomType = [
   body("name").optional().trim(),
-  body("base_price").optional().isNumeric().withMessage("Base price must be a number").toFloat(),
+  body("basePrice").optional().isNumeric().withMessage("Base price must be a number").toFloat(),
   body("category").optional().trim(),
-  body("max_occupancy").optional().isInt({ min: 1 }).withMessage("Maximum occupancy must be at least 1").toInt(),
+  body("maxPccupancy").optional().isInt({ min: 1 }).withMessage("Maximum occupancy must be at least 1").toInt(),
 ]
 
 // Create room validation
