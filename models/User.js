@@ -366,7 +366,6 @@ userSchema.methods.hasPermissionForHotel = async function (permission, hotelId) 
     return true
   }
 
-  // Get effective permissions for the specific hotel
   const permissions = await this.getEffectivePermissions(hotelId)
   return permissions.includes(permission)
 }
