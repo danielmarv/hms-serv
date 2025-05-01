@@ -18,6 +18,11 @@ const userHotelAccessSchema = new mongoose.Schema(
       enum: ["full", "limited", "read-only"],
       default: "limited",
     },
+    // Role for this specific hotel (can override user's default role)
+    hotel_role: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+    },
     // Specific permissions for this hotel (overrides role permissions)
     permissions: [
       {
@@ -25,23 +30,13 @@ const userHotelAccessSchema = new mongoose.Schema(
         ref: "Permission",
       },
     ],
-    // Whether user can access all branches of this hotel
-    accessAllBranches: {
-      type: Boolean,
-      default: false,
-    },
-    // Specific branches user can access (if accessAllBranches is false)
-    accessibleBranches: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Hotel",
-      },
-    ],
-    // Default hotel for user (shown on login)
+    // Whether this is the default hotel for the user
     isDefault: {
       type: Boolean,
       default: false,
     },
+    // Departments user has access to within this hotel
+    departments: [String],
     // Audit fields
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

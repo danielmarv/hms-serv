@@ -1,20 +1,13 @@
 import User from "../models/User.js"
-import Hotel from "../models/Hotel.js"
 import { ApiError } from "../utils/apiError.js"
-import {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
-  blacklistToken,
-  generateResetToken,
-} from "../utils/tokenUtils.js"
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, blacklistToken } from "../utils/tokenUtils.js"
 import { sendEmail } from "../utils/emailService.js"
 import crypto from "crypto"
 
-// Register new user
+// Register new user (public registration - creates guest account)
 export const register = async (req, res, next) => {
   try {
-    const { full_name, email, password, phone, hotelId } = req.body
+    const { full_name, email, password, phone } = req.body
 
     // Check if user already exists
     const existingUser = await User.findOne({ email })
@@ -22,30 +15,54 @@ export const register = async (req, res, next) => {
       return next(new ApiError("Email already in use", 400))
     }
 
-    // Create new user
+    // Create new user with guest role
     const user = await User.create({
       full_name,
       email,
       password,
       phone,
+      user_type: "guest", // Default to guest for public registration
     })
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user._id)
-    const refreshToken = generateRefreshToken(user._id)
+    // Generate verification token
+    const verificationToken = user.createEmailVerificationToken()
+    await user.save({ validateBeforeSave: false })
 
-    // Send response
-    res.status(201).json({
-      success: true,
-      message: "Registration successful",
-      accessToken,
-      refreshToken,
-      user: {
-        id: user._id,
-        full_name: user.full_name,
+    // Send verification email
+    try {
+      const verificationUrl = `${req.protocol}://${req.get("host")}/api/auth/verify-email/${verificationToken}`
+
+      await sendEmail({
         email: user.email,
-      },
-    })
+        subject: "Email Verification",
+        message: `Please verify your email by clicking on the following link: ${verificationUrl}`,
+      })
+
+      // Generate tokens
+      const accessToken = generateAccessToken(user._id)
+      const refreshToken = generateRefreshToken(user._id)
+
+      // Send response
+      res.status(201).json({
+        success: true,
+        message: "Registration successful. Please verify your email.",
+        accessToken,
+        refreshToken,
+        user: {
+          id: user._id,
+          full_name: user.full_name,
+          email: user.email,
+          user_type: user.user_type,
+        },
+      })
+    } catch (error) {
+      // If email sending fails, reset verification token
+      user.verification_token = undefined
+      user.verification_expires = undefined
+      await user.save({ validateBeforeSave: false })
+
+      return next(new ApiError("Error sending verification email", 500))
+    }
   } catch (error) {
     next(error)
   }
@@ -69,17 +86,59 @@ export const login = async (req, res, next) => {
       return next(new ApiError("Invalid credentials", 401))
     }
 
+    // Check if user is active
+    if (user.status !== "active") {
+      return next(new ApiError("Your account is inactive or suspended", 403))
+    }
+
     // Check if password is correct
     const isPasswordCorrect = await user.comparePassword(password)
     if (!isPasswordCorrect) {
+      // Increment login attempts
+      await user.incrementLoginAttempts()
       return next(new ApiError("Invalid credentials", 401))
     }
+
+    // Reset login attempts
+    await user.resetLoginAttempts()
+
+    // Update last login
+    user.last_login = Date.now()
+    await user.save({ validateBeforeSave: false })
 
     // Generate tokens
     const accessToken = generateAccessToken(user._id)
     const refreshToken = generateRefreshToken(user._id)
 
-    // Send response
+    // Populate role and permissions for response
+    await user.populate({
+      path: "role",
+      populate: {
+        path: "permissions",
+        model: "Permission",
+        select: "key description category isGlobal",
+      },
+    })
+
+    // Get accessible hotels
+    const accessibleHotels = await user.getAccessibleHotels()
+
+    // Get effective permissions
+    const effectivePermissions = await user.getEffectivePermissions()
+
+    // Prepare hotel context data
+    let hotelContext = null
+    if (user.active_hotel) {
+      await user.populate("active_hotel")
+      hotelContext = {
+        id: user.active_hotel._id,
+        name: user.active_hotel.name,
+        code: user.active_hotel.code,
+        chainCode: user.active_hotel.chainCode,
+      }
+    }
+
+    // Send response with context information
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -89,6 +148,28 @@ export const login = async (req, res, next) => {
         id: user._id,
         full_name: user.full_name,
         email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+        user_type: user.user_type,
+        status: user.status,
+        is_email_verified: user.is_email_verified,
+        last_login: user.last_login,
+        role: user.role
+          ? {
+              id: user.role._id,
+              name: user.role.name,
+              description: user.role.description,
+            }
+          : null,
+        permissions: effectivePermissions,
+        active_chain: user.active_chain,
+        active_hotel: hotelContext,
+        accessible_hotels: accessibleHotels.map((hotel) => ({
+          id: hotel._id,
+          name: hotel.name,
+          code: hotel.code,
+          chainCode: hotel.chainCode,
+        })),
       },
     })
   } catch (error) {
@@ -144,22 +225,25 @@ export const refreshToken = async (req, res, next) => {
   }
 }
 
-// Verify Email
+// Verify email
 export const verifyEmail = async (req, res, next) => {
   try {
-    const { token } = req.params
+    const token = req.params.token
 
+    // Hash token
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex")
 
+    // Find user with token
     const user = await User.findOne({
       verification_token: hashedToken,
       verification_expires: { $gt: Date.now() },
     })
 
     if (!user) {
-      return next(new ApiError("Invalid or expired verification token", 400))
+      return next(new ApiError("Invalid or expired token", 400))
     }
 
+    // Update user
     user.is_email_verified = true
     user.verification_token = undefined
     user.verification_expires = undefined
@@ -174,66 +258,69 @@ export const verifyEmail = async (req, res, next) => {
   }
 }
 
-// Forgot Password
+// Forgot password
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body
 
+    // Find user by email
     const user = await User.findOne({ email })
     if (!user) {
-      return next(new ApiError("There is no user with given email address", 404))
+      return next(new ApiError("No user found with this email", 404))
     }
 
     // Generate reset token
-    const resetToken = generateResetToken()
-
-    user.reset_password_token = resetToken.hash
-    user.reset_password_expires = resetToken.expires
+    const resetToken = user.createPasswordResetToken()
     await user.save({ validateBeforeSave: false })
 
-    // Send email
-    const resetUrl = `${req.protocol}://${req.get("host")}/reset-password/${resetToken.resetToken}`
-
+    // Send reset email
     try {
+      const resetUrl = `${req.protocol}://${req.get("host")}/api/auth/reset-password/${resetToken}`
+
       await sendEmail({
         email: user.email,
-        subject: "Password Reset Request",
-        message: `Please reset your password by clicking on the following link: ${resetUrl}`,
+        subject: "Password Reset",
+        message: `You requested a password reset. Please click on the following link to reset your password: ${resetUrl}
+If you didn't request this, please ignore this email.`,
       })
 
       res.status(200).json({
         success: true,
-        message: "Reset password link sent to email",
+        message: "Password reset email sent",
       })
     } catch (error) {
+      // If email sending fails, reset token
       user.reset_password_token = undefined
       user.reset_password_expires = undefined
       await user.save({ validateBeforeSave: false })
 
-      return next(new ApiError("There was an error sending the email, try again later", 500))
+      return next(new ApiError("Error sending password reset email", 500))
     }
   } catch (error) {
     next(error)
   }
 }
 
-// Reset Password
+// Reset password
 export const resetPassword = async (req, res, next) => {
   try {
-    const { token } = req.params
+    const token = req.params.token
     const { password } = req.body
 
+    // Hash token
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex")
 
+    // Find user with token
     const user = await User.findOne({
       reset_password_token: hashedToken,
       reset_password_expires: { $gt: Date.now() },
     }).select("+password")
 
     if (!user) {
-      return next(new ApiError("Invalid or expired reset token", 400))
+      return next(new ApiError("Invalid or expired token", 400))
     }
 
+    // Update password
     user.password = password
     user.reset_password_token = undefined
     user.reset_password_expires = undefined
@@ -241,30 +328,28 @@ export const resetPassword = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "Password reset successfully",
+      message: "Password reset successful",
     })
   } catch (error) {
     next(error)
   }
 }
 
-// Change Password
+// Change password
 export const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body
 
+    // Get user with password
     const user = await User.findById(req.user.id).select("+password")
 
-    if (!user) {
-      return next(new ApiError("User not found", 404))
-    }
-
-    // Check if current password is correct
+    // Check current password
     const isPasswordCorrect = await user.comparePassword(currentPassword)
     if (!isPasswordCorrect) {
-      return next(new ApiError("Invalid current password", 401))
+      return next(new ApiError("Current password is incorrect", 401))
     }
 
+    // Update password
     user.password = newPassword
     await user.save()
 
@@ -280,12 +365,67 @@ export const changePassword = async (req, res, next) => {
 // Get current user
 export const getCurrentUser = async (req, res, next) => {
   try {
+    // Populate role and permissions
+    await req.user.populate({
+      path: "role",
+      populate: {
+        path: "permissions",
+        model: "Permission",
+        select: "key description category isGlobal",
+      },
+    })
+
+    await req.user.populate({
+      path: "custom_permissions",
+      select: "key description category isGlobal",
+    })
+
+    // Get accessible hotels
+    const accessibleHotels = await req.user.getAccessibleHotels()
+
+    // Get effective permissions
+    const effectivePermissions = await req.user.getEffectivePermissions()
+
+    // Prepare hotel context data
+    let hotelContext = null
+    if (req.user.active_hotel) {
+      await req.user.populate("active_hotel")
+      hotelContext = {
+        id: req.user.active_hotel._id,
+        name: req.user.active_hotel.name,
+        code: req.user.active_hotel.code,
+        chainCode: req.user.active_hotel.chainCode,
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
         id: req.user._id,
         full_name: req.user.full_name,
         email: req.user.email,
+        phone: req.user.phone,
+        avatar: req.user.avatar,
+        user_type: req.user.user_type,
+        status: req.user.status,
+        is_email_verified: req.user.is_email_verified,
+        last_login: req.user.last_login,
+        role: req.user.role
+          ? {
+              id: req.user.role._id,
+              name: req.user.role.name,
+              description: req.user.role.description,
+            }
+          : null,
+        permissions: effectivePermissions,
+        active_chain: req.user.active_chain,
+        active_hotel: hotelContext,
+        accessible_hotels: accessibleHotels.map((hotel) => ({
+          id: hotel._id,
+          name: hotel.name,
+          code: hotel.code,
+          chainCode: hotel.chainCode,
+        })),
       },
     })
   } catch (error) {
@@ -296,26 +436,22 @@ export const getCurrentUser = async (req, res, next) => {
 // Switch hotel context
 export const switchHotelContext = async (req, res, next) => {
   try {
-    const { hotelId } = req.body
+    const { chainCode, hotelId } = req.body
 
-    // Validate hotel
-    const hotel = await Hotel.findById(hotelId)
-    if (!hotel) {
-      return next(new ApiError("Hotel not found", 404))
+    if (!chainCode) {
+      return next(new ApiError("Chain code is required", 400))
     }
 
-    // Check if user has access to this hotel
-    if (!req.user.hasHotelAccess(hotelId)) {
-      return next(new ApiError("You do not have access to this hotel", 403))
-    }
-
-    // Update primary hotel
-    req.user.primary_hotel = hotelId
-    await req.user.save()
+    // Set active context
+    const context = await req.user.setActiveContext(chainCode, hotelId)
 
     res.status(200).json({
       success: true,
-      message: "Hotel context switched successfully",
+      message: "Context switched successfully",
+      data: {
+        active_chain: context.chain,
+        active_hotel: context.hotel,
+      },
     })
   } catch (error) {
     next(error)

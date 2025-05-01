@@ -367,3 +367,4 @@ export const applyHotelFilter = (req, query) => {
 
   return query
 }
+

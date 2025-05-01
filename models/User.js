@@ -50,31 +50,36 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // Hotel associations - Multi-tenant architecture
-    primary_hotel: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
+    // User type - determines access level
+    user_type: {
+      type: String,
+      enum: ["super_admin", "admin", "staff", "guest"],
+      default: "staff",
     },
-    accessible_hotels: [
+
+    // Chain and Hotel associations
+    chain_access: [
       {
-        hotel: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Hotel",
-        },
-        role: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Role",
-        },
-        access_level: {
+        chain_code: {
           type: String,
-          enum: ["read", "write", "admin"],
-          default: "read",
+          required: true,
+        },
+        is_chain_admin: {
+          type: Boolean,
+          default: false,
         },
       },
     ],
-    is_global_admin: {
-      type: Boolean,
-      default: false,
+
+    // Current active context
+    active_chain: {
+      type: String,
+      default: null,
+    },
+    active_hotel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hotel",
+      default: null,
     },
 
     // Extended attributes
@@ -166,7 +171,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 }
 
 // Get effective permissions
-userSchema.methods.getEffectivePermissions = async function (hotelId = null) {
+userSchema.methods.getEffectivePermissions = async function () {
   try {
     // Ensure role and permissions are populated
     if (!this.populated("role") || !this.populated("custom_permissions")) {
@@ -179,38 +184,15 @@ userSchema.methods.getEffectivePermissions = async function (hotelId = null) {
       }).populate("custom_permissions")
     }
 
-    // If user is a global admin (super admin or admin), they have all permissions
-    if (this.is_global_admin || (this.role && ["super admin", "admin"].includes(this.role.name))) {
-      // Get all permissions from the database
+    // Super admin has all permissions
+    if (this.user_type === "super_admin") {
       const Permission = mongoose.model("Permission")
       const allPermissions = await Permission.find({}).select("key")
       return allPermissions.map((p) => p.key)
     }
 
-    // If hotelId is provided, get hotel-specific role
-    let rolePermissions = []
-    if (hotelId) {
-      // Find the specific hotel in accessible_hotels
-      const hotelAccess = this.accessible_hotels.find(
-        (access) => access.hotel && access.hotel.toString() === hotelId.toString(),
-      )
-
-      if (hotelAccess && hotelAccess.role) {
-        // Populate the hotel-specific role if not already populated
-        if (typeof hotelAccess.role === "string" || hotelAccess.role instanceof mongoose.Types.ObjectId) {
-          const Role = mongoose.model("Role")
-          const hotelRole = await Role.findById(hotelAccess.role).populate("permissions")
-          if (hotelRole) {
-            rolePermissions = hotelRole.permissions.map((p) => p.key)
-          }
-        } else if (hotelAccess.role.permissions) {
-          rolePermissions = hotelAccess.role.permissions.map((p) => p.key)
-        }
-      }
-    } else {
-      // Use primary role permissions
-      rolePermissions = this.role?.permissions?.map((p) => p.key) || []
-    }
+    // Get permissions from role
+    const rolePermissions = this.role?.permissions?.map((p) => p.key) || []
 
     // Get custom permissions
     const customPermissions = this.custom_permissions?.map((p) => p.key) || []
@@ -218,7 +200,6 @@ userSchema.methods.getEffectivePermissions = async function (hotelId = null) {
     // Combine and remove duplicates
     return [...new Set([...rolePermissions, ...customPermissions])]
   } catch (error) {
-    console.error("Error getting effective permissions:", error)
     throw new Error("Error getting effective permissions")
   }
 }
@@ -261,115 +242,176 @@ userSchema.methods.resetLoginAttempts = async function () {
   await this.save()
 }
 
+// Check if user has access to a specific chain
+userSchema.methods.hasChainAccess = function (chainCode) {
+  // Super admin has access to all chains
+  if (this.user_type === "super_admin") {
+    return true
+  }
+
+  // Check if user has access to this chain
+  return this.chain_access.some((access) => access.chain_code === chainCode)
+}
+
+// Check if user is a chain admin for a specific chain
+userSchema.methods.isChainAdmin = function (chainCode) {
+  // Super admin is admin of all chains
+  if (this.user_type === "super_admin") {
+    return true
+  }
+
+  // Check if user is admin for this chain
+  const chainAccess = this.chain_access.find((access) => access.chain_code === chainCode)
+  return chainAccess && chainAccess.is_chain_admin
+}
+
 // Check if user has access to a specific hotel
-userSchema.methods.hasHotelAccess = function (hotelId, requiredAccessLevel = "read") {
-  // If user is a global admin, they have access to all hotels
-  if (this.is_global_admin || (this.role && ["super admin", "admin"].includes(this.role.name))) {
-    return true
-  }
+userSchema.methods.hasHotelAccess = async function (hotelId) {
+  try {
+    // Super admin has access to all hotels
+    if (this.user_type === "super_admin") {
+      return true
+    }
 
-  // Check if it's the primary hotel
-  if (this.primary_hotel && this.primary_hotel.toString() === hotelId.toString()) {
-    return true
-  }
+    // Get the hotel to check its chain
+    const Hotel = mongoose.model("Hotel")
+    const hotel = await Hotel.findById(hotelId)
 
-  // Check accessible hotels
-  const accessLevels = { read: 1, write: 2, admin: 3 }
-  const requiredLevel = accessLevels[requiredAccessLevel] || 1
+    if (!hotel) {
+      return false
+    }
 
-  const hotelAccess = this.accessible_hotels.find(
-    (access) => access.hotel && access.hotel.toString() === hotelId.toString(),
-  )
+    // Check if user has access to the hotel's chain
+    if (!this.hasChainAccess(hotel.chainCode)) {
+      return false
+    }
 
-  if (!hotelAccess) {
+    // Chain admins have access to all hotels in their chains
+    if (this.isChainAdmin(hotel.chainCode)) {
+      return true
+    }
+
+    // Check user's hotel access
+    const UserHotelAccess = mongoose.model("UserHotelAccess")
+    const access = await UserHotelAccess.findOne({
+      user: this._id,
+      hotel: hotelId,
+    })
+
+    return !!access
+  } catch (error) {
+    console.error("Error checking hotel access:", error)
     return false
   }
-
-  const userLevel = accessLevels[hotelAccess.access_level] || 0
-  return userLevel >= requiredLevel
 }
 
 // Get all accessible hotels for the user
-userSchema.methods.getAccessibleHotels = async function (accessLevel = "read") {
+userSchema.methods.getAccessibleHotels = async function () {
   try {
-    // If user is a global admin, return all hotels
-    if (this.is_global_admin || (this.role && ["super admin", "admin"].includes(this.role.name))) {
-      const Hotel = mongoose.model("Hotel")
+    const Hotel = mongoose.model("Hotel")
+    const UserHotelAccess = mongoose.model("UserHotelAccess")
+
+    // Super admin can access all hotels
+    if (this.user_type === "super_admin") {
       return await Hotel.find({ active: true })
     }
 
-    // Ensure accessible_hotels is populated
-    if (!this.populated("accessible_hotels.hotel")) {
-      await this.populate("accessible_hotels.hotel primary_hotel")
+    // For chain admins, get all hotels in their chains
+    if (this.chain_access.some((access) => access.is_chain_admin)) {
+      const chainCodes = this.chain_access.filter((access) => access.is_chain_admin).map((access) => access.chain_code)
+
+      return await Hotel.find({
+        chainCode: { $in: chainCodes },
+        active: true,
+      })
     }
 
-    const accessLevels = { read: 1, write: 2, admin: 3 }
-    const requiredLevel = accessLevels[accessLevel] || 1
+    // For regular users, get hotels they have explicit access to
+    const hotelAccess = await UserHotelAccess.find({ user: this._id })
+    const hotelIds = hotelAccess.map((access) => access.hotel)
 
-    // Filter hotels based on access level
-    const hotels = []
-
-    // Add primary hotel if it exists
-    if (this.primary_hotel) {
-      hotels.push(this.primary_hotel)
-    }
-
-    // Add hotels from accessible_hotels with sufficient access level
-    this.accessible_hotels.forEach((access) => {
-      if (access.hotel && accessLevels[access.access_level] >= requiredLevel) {
-        // Avoid duplicates
-        if (!hotels.some((h) => h._id.toString() === access.hotel._id.toString())) {
-          hotels.push(access.hotel)
-        }
-      }
+    return await Hotel.find({
+      _id: { $in: hotelIds },
+      active: true,
     })
-
-    return hotels
   } catch (error) {
     console.error("Error getting accessible hotels:", error)
     throw new Error("Error getting accessible hotels")
   }
 }
 
-// Get current hotel context
-userSchema.methods.getCurrentHotelContext = function () {
-  // Return primary hotel by default
-  return this.primary_hotel
-}
-
-// Set current hotel context
-userSchema.methods.setCurrentHotelContext = async function (hotelId) {
-  // Verify access to the hotel
-  if (!this.hasHotelAccess(hotelId)) {
-    throw new Error("User does not have access to this hotel")
+// Set active chain and hotel context
+userSchema.methods.setActiveContext = async function (chainCode, hotelId) {
+  // Verify chain access
+  if (!this.hasChainAccess(chainCode)) {
+    throw new Error("User does not have access to this chain")
   }
 
-  // Update primary hotel
-  this.primary_hotel = hotelId
+  // Verify hotel access if provided
+  if (hotelId) {
+    const hasAccess = await this.hasHotelAccess(hotelId)
+    if (!hasAccess) {
+      throw new Error("User does not have access to this hotel")
+    }
+
+    // Verify hotel belongs to the chain
+    const Hotel = mongoose.model("Hotel")
+    const hotel = await Hotel.findById(hotelId)
+    if (!hotel || hotel.chainCode !== chainCode) {
+      throw new Error("Hotel does not belong to the specified chain")
+    }
+
+    this.active_hotel = hotelId
+  } else {
+    // If no hotel specified, try to find a default one
+    const UserHotelAccess = mongoose.model("UserHotelAccess")
+    const Hotel = mongoose.model("Hotel")
+
+    // Find hotels in this chain that the user has access to
+    const hotels = await Hotel.find({ chainCode })
+    const hotelIds = hotels.map((h) => h._id)
+
+    // Find default hotel access
+    const defaultAccess = await UserHotelAccess.findOne({
+      user: this._id,
+      hotel: { $in: hotelIds },
+      isDefault: true,
+    })
+
+    // If default found, use it
+    if (defaultAccess) {
+      this.active_hotel = defaultAccess.hotel
+    } else {
+      // Otherwise use the first accessible hotel
+      const anyAccess = await UserHotelAccess.findOne({
+        user: this._id,
+        hotel: { $in: hotelIds },
+      })
+
+      this.active_hotel = anyAccess ? anyAccess.hotel : null
+    }
+  }
+
+  this.active_chain = chainCode
   await this.save()
-  return this.primary_hotel
+
+  return {
+    chain: this.active_chain,
+    hotel: this.active_hotel,
+  }
 }
 
 // Check if user is a super admin
 userSchema.methods.isSuperAdmin = function () {
-  return this.is_global_admin || (this.role && this.role.name === "super admin")
+  return this.user_type === "super_admin"
 }
 
-// Check if user is an admin
+// Check if user is an admin (either super admin or chain admin)
 userSchema.methods.isAdmin = function () {
-  return this.is_global_admin || (this.role && (this.role.name === "super admin" || this.role.name === "admin"))
-}
+  if (this.user_type === "super_admin") return true
 
-// Check if user has specific permission for a hotel
-userSchema.methods.hasPermissionForHotel = async function (permission, hotelId) {
-  // If user is a global admin, they have all permissions
-  if (this.is_global_admin || (this.role && ["super admin", "admin"].includes(this.role.name))) {
-    return true
-  }
-
-  // Get effective permissions for the specific hotel
-  const permissions = await this.getEffectivePermissions(hotelId)
-  return permissions.includes(permission)
+  // Check if user is admin for any chain
+  return this.chain_access.some((access) => access.is_chain_admin)
 }
 
 const User = mongoose.model("User", userSchema)
