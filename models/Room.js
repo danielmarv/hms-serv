@@ -7,7 +7,6 @@ const roomSchema = new mongoose.Schema(
       required: [true, "Room number is required"],
       unique: true,
       trim: true,
-      // Remove index: true if it exists
     },
     roomType: {
       type: mongoose.Schema.Types.ObjectId,
