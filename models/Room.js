@@ -66,7 +66,6 @@ const roomSchema = new mongoose.Schema(
   },
 )
 
-// Virtual for current booking
 roomSchema.virtual("currentBooking", {
   ref: "Booking",
   localField: "_id",
