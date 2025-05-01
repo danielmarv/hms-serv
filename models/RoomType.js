@@ -77,7 +77,6 @@ roomTypeSchema.virtual("availableRoomsCount").get(function () {
   return this.rooms.filter((room) => room.status === "available").length
 })
 
-// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 roomTypeSchema.index({ name: 1 })
 roomTypeSchema.index({ basePrice: 1 })
 roomTypeSchema.index({ isActive: 1 })
