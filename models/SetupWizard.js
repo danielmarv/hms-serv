@@ -49,6 +49,5 @@ const setupWizardSchema = new mongoose.Schema(
   },
 )
 
-// Create and export the model
 const SetupWizard = mongoose.model("SetupWizard", setupWizardSchema)
 export default SetupWizard
