@@ -71,7 +71,6 @@ roomTypeSchema.virtual("rooms", {
   foreignField: "roomType",
 })
 
-// Virtual for available rooms count
 roomTypeSchema.virtual("availableRoomsCount").get(function () {
   if (!this.rooms) return 0
   return this.rooms.filter((room) => room.status === "available").length
