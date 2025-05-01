@@ -3,8 +3,10 @@ import { ApiError } from "../utils/apiError.js"
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, blacklistToken } from "../utils/tokenUtils.js"
 import { sendEmail } from "../utils/emailService.js"
 import crypto from "crypto"
+// Import the roleUtils at the top of the file
+import { assignDefaultRole } from "../utils/roleUtils.js"
 
-// Register new user (public registration - creates guest account)
+// Register new user
 export const register = async (req, res, next) => {
   try {
     const { full_name, email, password, phone } = req.body
@@ -15,14 +17,16 @@ export const register = async (req, res, next) => {
       return next(new ApiError("Email already in use", 400))
     }
 
-    // Create new user with guest role
+    // Create new user
     const user = await User.create({
       full_name,
       email,
       password,
       phone,
-      user_type: "guest", // Default to guest for public registration
     })
+
+    // Assign default guest role
+    await assignDefaultRole(user._id, "guest")
 
     // Generate verification token
     const verificationToken = user.createEmailVerificationToken()
@@ -52,7 +56,16 @@ export const register = async (req, res, next) => {
           id: user._id,
           full_name: user.full_name,
           email: user.email,
-          user_type: user.user_type,
+          phone: user.phone,
+          status: user.status,
+          is_email_verified: user.is_email_verified,
+          role: user.role
+            ? await user.populate("role").then(() => ({
+                id: user.role._id,
+                name: user.role.name,
+                description: user.role.description,
+              }))
+            : null,
         },
       })
     } catch (error) {
@@ -110,35 +123,23 @@ export const login = async (req, res, next) => {
     const accessToken = generateAccessToken(user._id)
     const refreshToken = generateRefreshToken(user._id)
 
-    // Populate role and permissions for response
+    // Populate role and permissions
     await user.populate({
       path: "role",
       populate: {
         path: "permissions",
         model: "Permission",
-        select: "key description category isGlobal",
+        select: "key description category isGlobal", // Include all permission fields
       },
     })
 
-    // Get accessible hotels
-    const accessibleHotels = await user.getAccessibleHotels()
+    // Populate custom permissions too
+    await user.populate({
+      path: "custom_permissions",
+      select: "key description category isGlobal",
+    })
 
-    // Get effective permissions
-    const effectivePermissions = await user.getEffectivePermissions()
-
-    // Prepare hotel context data
-    let hotelContext = null
-    if (user.active_hotel) {
-      await user.populate("active_hotel")
-      hotelContext = {
-        id: user.active_hotel._id,
-        name: user.active_hotel.name,
-        code: user.active_hotel.code,
-        chainCode: user.active_hotel.chainCode,
-      }
-    }
-
-    // Send response with context information
+    // Send response with full permission details
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -149,27 +150,31 @@ export const login = async (req, res, next) => {
         full_name: user.full_name,
         email: user.email,
         phone: user.phone,
-        avatar: user.avatar,
-        user_type: user.user_type,
         status: user.status,
-        is_email_verified: user.is_email_verified,
         last_login: user.last_login,
+        is_email_verified: user.is_email_verified,
         role: user.role
           ? {
               id: user.role._id,
               name: user.role.name,
               description: user.role.description,
+              permissions: user.role.permissions.map((p) => ({
+                id: p._id,
+                key: p.key,
+                description: p.description,
+                category: p.category,
+                isGlobal: p.isGlobal,
+              })),
             }
           : null,
-        permissions: effectivePermissions,
-        active_chain: user.active_chain,
-        active_hotel: hotelContext,
-        accessible_hotels: accessibleHotels.map((hotel) => ({
-          id: hotel._id,
-          name: hotel.name,
-          code: hotel.code,
-          chainCode: hotel.chainCode,
-        })),
+        custom_permissions:
+          user.custom_permissions.map((p) => ({
+            id: p._id,
+            key: p.key,
+            description: p.description,
+            category: p.category,
+            isGlobal: p.isGlobal,
+          })) || [],
       },
     })
   } catch (error) {
@@ -280,8 +285,7 @@ export const forgotPassword = async (req, res, next) => {
       await sendEmail({
         email: user.email,
         subject: "Password Reset",
-        message: `You requested a password reset. Please click on the following link to reset your password: ${resetUrl}
-If you didn't request this, please ignore this email.`,
+        message: `You requested a password reset. Please click on the following link to reset your password: ${resetUrl}\nIf you didn't request this, please ignore this email.`,
       })
 
       res.status(200).json({
@@ -365,67 +369,64 @@ export const changePassword = async (req, res, next) => {
 // Get current user
 export const getCurrentUser = async (req, res, next) => {
   try {
-    // Populate role and permissions
-    await req.user.populate({
-      path: "role",
-      populate: {
-        path: "permissions",
-        model: "Permission",
+    const user = await User.findById(req.user.id)
+      .populate({
+        path: "role",
+        populate: {
+          path: "permissions",
+          model: "Permission",
+          select: "key description category isGlobal",
+        },
+      })
+      .populate({
+        path: "custom_permissions",
         select: "key description category isGlobal",
-      },
-    })
+      })
 
-    await req.user.populate({
-      path: "custom_permissions",
-      select: "key description category isGlobal",
-    })
-
-    // Get accessible hotels
-    const accessibleHotels = await req.user.getAccessibleHotels()
-
-    // Get effective permissions
-    const effectivePermissions = await req.user.getEffectivePermissions()
-
-    // Prepare hotel context data
-    let hotelContext = null
-    if (req.user.active_hotel) {
-      await req.user.populate("active_hotel")
-      hotelContext = {
-        id: req.user.active_hotel._id,
-        name: req.user.active_hotel.name,
-        code: req.user.active_hotel.code,
-        chainCode: req.user.active_hotel.chainCode,
-      }
+    if (!user) {
+      return next(new ApiError("User not found", 404))
     }
 
     res.status(200).json({
       success: true,
       data: {
-        id: req.user._id,
-        full_name: req.user.full_name,
-        email: req.user.email,
-        phone: req.user.phone,
-        avatar: req.user.avatar,
-        user_type: req.user.user_type,
-        status: req.user.status,
-        is_email_verified: req.user.is_email_verified,
-        last_login: req.user.last_login,
-        role: req.user.role
+        id: user._id,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+        gender: user.gender,
+        dob: user.dob,
+        status: user.status,
+        last_login: user.last_login,
+        is_email_verified: user.is_email_verified,
+        national_id: user.national_id,
+        address: user.address,
+        department: user.department,
+        job_title: user.job_title,
+        branch: user.branch,
+        role: user.role
           ? {
-              id: req.user.role._id,
-              name: req.user.role.name,
-              description: req.user.role.description,
+              id: user.role._id,
+              name: user.role.name,
+              description: user.role.description,
+              permissions: user.role.permissions.map((p) => ({
+                id: p._id,
+                key: p.key,
+                description: p.description,
+                category: p.category,
+                isGlobal: p.isGlobal,
+              })),
             }
           : null,
-        permissions: effectivePermissions,
-        active_chain: req.user.active_chain,
-        active_hotel: hotelContext,
-        accessible_hotels: accessibleHotels.map((hotel) => ({
-          id: hotel._id,
-          name: hotel.name,
-          code: hotel.code,
-          chainCode: hotel.chainCode,
-        })),
+        custom_permissions:
+          user.custom_permissions.map((p) => ({
+            id: p._id,
+            key: p.key,
+            description: p.description,
+            category: p.category,
+            isGlobal: p.isGlobal,
+          })) || [],
       },
     })
   } catch (error) {
@@ -433,7 +434,6 @@ export const getCurrentUser = async (req, res, next) => {
   }
 }
 
-// Switch hotel context
 export const switchHotelContext = async (req, res, next) => {
   try {
     const { chainCode, hotelId } = req.body
