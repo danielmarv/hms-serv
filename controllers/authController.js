@@ -1,15 +1,20 @@
 import User from "../models/User.js"
+import Hotel from "../models/Hotel.js"
 import { ApiError } from "../utils/apiError.js"
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, blacklistToken } from "../utils/tokenUtils.js"
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  blacklistToken,
+  generateResetToken,
+} from "../utils/tokenUtils.js"
 import { sendEmail } from "../utils/emailService.js"
 import crypto from "crypto"
-// Import the roleUtils at the top of the file
-import { assignDefaultRole } from "../utils/roleUtils.js"
 
 // Register new user
 export const register = async (req, res, next) => {
   try {
-    const { full_name, email, password, phone } = req.body
+    const { full_name, email, password, phone, hotelId } = req.body
 
     // Check if user already exists
     const existingUser = await User.findOne({ email })
@@ -25,57 +30,22 @@ export const register = async (req, res, next) => {
       phone,
     })
 
-    // Assign default guest role
-    await assignDefaultRole(user._id, "guest")
+    // Generate tokens
+    const accessToken = generateAccessToken(user._id)
+    const refreshToken = generateRefreshToken(user._id)
 
-    // Generate verification token
-    const verificationToken = user.createEmailVerificationToken()
-    await user.save({ validateBeforeSave: false })
-
-    // Send verification email
-    try {
-      const verificationUrl = `${req.protocol}://${req.get("host")}/api/auth/verify-email/${verificationToken}`
-
-      await sendEmail({
+    // Send response
+    res.status(201).json({
+      success: true,
+      message: "Registration successful",
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        full_name: user.full_name,
         email: user.email,
-        subject: "Email Verification",
-        message: `Please verify your email by clicking on the following link: ${verificationUrl}`,
-      })
-
-      // Generate tokens
-      const accessToken = generateAccessToken(user._id)
-      const refreshToken = generateRefreshToken(user._id)
-
-      // Send response
-      res.status(201).json({
-        success: true,
-        message: "Registration successful. Please verify your email.",
-        accessToken,
-        refreshToken,
-        user: {
-          id: user._id,
-          full_name: user.full_name,
-          email: user.email,
-          phone: user.phone,
-          status: user.status,
-          is_email_verified: user.is_email_verified,
-          role: user.role
-            ? await user.populate("role").then(() => ({
-                id: user.role._id,
-                name: user.role.name,
-                description: user.role.description,
-              }))
-            : null,
-        },
-      })
-    } catch (error) {
-      // If email sending fails, reset verification token
-      user.verification_token = undefined
-      user.verification_expires = undefined
-      await user.save({ validateBeforeSave: false })
-
-      return next(new ApiError("Error sending verification email", 500))
-    }
+      },
+    })
   } catch (error) {
     next(error)
   }
@@ -99,47 +69,17 @@ export const login = async (req, res, next) => {
       return next(new ApiError("Invalid credentials", 401))
     }
 
-    // Check if user is active
-    if (user.status !== "active") {
-      return next(new ApiError("Your account is inactive or suspended", 403))
-    }
-
     // Check if password is correct
     const isPasswordCorrect = await user.comparePassword(password)
     if (!isPasswordCorrect) {
-      // Increment login attempts
-      await user.incrementLoginAttempts()
       return next(new ApiError("Invalid credentials", 401))
     }
-
-    // Reset login attempts
-    await user.resetLoginAttempts()
-
-    // Update last login
-    user.last_login = Date.now()
-    await user.save({ validateBeforeSave: false })
 
     // Generate tokens
     const accessToken = generateAccessToken(user._id)
     const refreshToken = generateRefreshToken(user._id)
 
-    // Populate role and permissions
-    await user.populate({
-      path: "role",
-      populate: {
-        path: "permissions",
-        model: "Permission",
-        select: "key description category isGlobal", // Include all permission fields
-      },
-    })
-
-    // Populate custom permissions too
-    await user.populate({
-      path: "custom_permissions",
-      select: "key description category isGlobal",
-    })
-
-    // Send response with full permission details
+    // Send response
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -149,32 +89,6 @@ export const login = async (req, res, next) => {
         id: user._id,
         full_name: user.full_name,
         email: user.email,
-        phone: user.phone,
-        status: user.status,
-        last_login: user.last_login,
-        is_email_verified: user.is_email_verified,
-        role: user.role
-          ? {
-              id: user.role._id,
-              name: user.role.name,
-              description: user.role.description,
-              permissions: user.role.permissions.map((p) => ({
-                id: p._id,
-                key: p.key,
-                description: p.description,
-                category: p.category,
-                isGlobal: p.isGlobal,
-              })),
-            }
-          : null,
-        custom_permissions:
-          user.custom_permissions.map((p) => ({
-            id: p._id,
-            key: p.key,
-            description: p.description,
-            category: p.category,
-            isGlobal: p.isGlobal,
-          })) || [],
       },
     })
   } catch (error) {
@@ -230,25 +144,22 @@ export const refreshToken = async (req, res, next) => {
   }
 }
 
-// Verify email
+// Verify Email
 export const verifyEmail = async (req, res, next) => {
   try {
-    const token = req.params.token
+    const { token } = req.params
 
-    // Hash token
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex")
 
-    // Find user with token
     const user = await User.findOne({
       verification_token: hashedToken,
       verification_expires: { $gt: Date.now() },
     })
 
     if (!user) {
-      return next(new ApiError("Invalid or expired token", 400))
+      return next(new ApiError("Invalid or expired verification token", 400))
     }
 
-    // Update user
     user.is_email_verified = true
     user.verification_token = undefined
     user.verification_expires = undefined
@@ -263,68 +174,66 @@ export const verifyEmail = async (req, res, next) => {
   }
 }
 
-// Forgot password
+// Forgot Password
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body
 
-    // Find user by email
     const user = await User.findOne({ email })
     if (!user) {
-      return next(new ApiError("No user found with this email", 404))
+      return next(new ApiError("There is no user with given email address", 404))
     }
 
     // Generate reset token
-    const resetToken = user.createPasswordResetToken()
+    const resetToken = generateResetToken()
+
+    user.reset_password_token = resetToken.hash
+    user.reset_password_expires = resetToken.expires
     await user.save({ validateBeforeSave: false })
 
-    // Send reset email
-    try {
-      const resetUrl = `${req.protocol}://${req.get("host")}/api/auth/reset-password/${resetToken}`
+    // Send email
+    const resetUrl = `${req.protocol}://${req.get("host")}/reset-password/${resetToken.resetToken}`
 
+    try {
       await sendEmail({
         email: user.email,
-        subject: "Password Reset",
-        message: `You requested a password reset. Please click on the following link to reset your password: ${resetUrl}\nIf you didn't request this, please ignore this email.`,
+        subject: "Password Reset Request",
+        message: `Please reset your password by clicking on the following link: ${resetUrl}`,
       })
 
       res.status(200).json({
         success: true,
-        message: "Password reset email sent",
+        message: "Reset password link sent to email",
       })
     } catch (error) {
-      // If email sending fails, reset token
       user.reset_password_token = undefined
       user.reset_password_expires = undefined
       await user.save({ validateBeforeSave: false })
 
-      return next(new ApiError("Error sending password reset email", 500))
+      return next(new ApiError("There was an error sending the email, try again later", 500))
     }
   } catch (error) {
     next(error)
   }
 }
 
-// Reset password
+// Reset Password
 export const resetPassword = async (req, res, next) => {
   try {
-    const token = req.params.token
+    const { token } = req.params
     const { password } = req.body
 
-    // Hash token
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex")
 
-    // Find user with token
     const user = await User.findOne({
       reset_password_token: hashedToken,
       reset_password_expires: { $gt: Date.now() },
     }).select("+password")
 
     if (!user) {
-      return next(new ApiError("Invalid or expired token", 400))
+      return next(new ApiError("Invalid or expired reset token", 400))
     }
 
-    // Update password
     user.password = password
     user.reset_password_token = undefined
     user.reset_password_expires = undefined
@@ -332,28 +241,30 @@ export const resetPassword = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "Password reset successful",
+      message: "Password reset successfully",
     })
   } catch (error) {
     next(error)
   }
 }
 
-// Change password
+// Change Password
 export const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body
 
-    // Get user with password
     const user = await User.findById(req.user.id).select("+password")
 
-    // Check current password
-    const isPasswordCorrect = await user.comparePassword(currentPassword)
-    if (!isPasswordCorrect) {
-      return next(new ApiError("Current password is incorrect", 401))
+    if (!user) {
+      return next(new ApiError("User not found", 404))
     }
 
-    // Update password
+    // Check if current password is correct
+    const isPasswordCorrect = await user.comparePassword(currentPassword)
+    if (!isPasswordCorrect) {
+      return next(new ApiError("Invalid current password", 401))
+    }
+
     user.password = newPassword
     await user.save()
 
@@ -369,65 +280,42 @@ export const changePassword = async (req, res, next) => {
 // Get current user
 export const getCurrentUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id)
-      .populate({
-        path: "role",
-        populate: {
-          path: "permissions",
-          model: "Permission",
-          select: "key description category isGlobal",
-        },
-      })
-      .populate({
-        path: "custom_permissions",
-        select: "key description category isGlobal",
-      })
-
-    if (!user) {
-      return next(new ApiError("User not found", 404))
-    }
-
     res.status(200).json({
       success: true,
       data: {
-        id: user._id,
-        full_name: user.full_name,
-        email: user.email,
-        phone: user.phone,
-        avatar: user.avatar,
-        gender: user.gender,
-        dob: user.dob,
-        status: user.status,
-        last_login: user.last_login,
-        is_email_verified: user.is_email_verified,
-        national_id: user.national_id,
-        address: user.address,
-        department: user.department,
-        job_title: user.job_title,
-        branch: user.branch,
-        role: user.role
-          ? {
-              id: user.role._id,
-              name: user.role.name,
-              description: user.role.description,
-              permissions: user.role.permissions.map((p) => ({
-                id: p._id,
-                key: p.key,
-                description: p.description,
-                category: p.category,
-                isGlobal: p.isGlobal,
-              })),
-            }
-          : null,
-        custom_permissions:
-          user.custom_permissions.map((p) => ({
-            id: p._id,
-            key: p.key,
-            description: p.description,
-            category: p.category,
-            isGlobal: p.isGlobal,
-          })) || [],
+        id: req.user._id,
+        full_name: req.user.full_name,
+        email: req.user.email,
       },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Switch hotel context
+export const switchHotelContext = async (req, res, next) => {
+  try {
+    const { hotelId } = req.body
+
+    // Validate hotel
+    const hotel = await Hotel.findById(hotelId)
+    if (!hotel) {
+      return next(new ApiError("Hotel not found", 404))
+    }
+
+    // Check if user has access to this hotel
+    if (!req.user.hasHotelAccess(hotelId)) {
+      return next(new ApiError("You do not have access to this hotel", 403))
+    }
+
+    // Update primary hotel
+    req.user.primary_hotel = hotelId
+    await req.user.save()
+
+    res.status(200).json({
+      success: true,
+      message: "Hotel context switched successfully",
     })
   } catch (error) {
     next(error)
