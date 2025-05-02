@@ -220,8 +220,8 @@ export const validateUpdateRoomType = [
 
 // Create room validation
 export const validateCreateRoom = [
-  body("number").trim().notEmpty().withMessage("Room number is required"),
-  body("room_type")
+  body("roomNumber").trim().notEmpty().withMessage("Room number is required"),
+  body("roomType")
     .notEmpty()
     .withMessage("Room type is required")
     .custom((value) => {
@@ -240,8 +240,8 @@ export const validateCreateRoom = [
 
 // Update room validation
 export const validateUpdateRoom = [
-  body("number").optional().trim(),
-  body("room_type")
+  body("roomNumber").optional().trim(),
+  body("roomType")
     .optional()
     .custom((value) => {
       if (!mongoose.Types.ObjectId.isValid(value)) {

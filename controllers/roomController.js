@@ -87,7 +87,7 @@ export const createRoom = async (req, res) => {
 
   try {
     // Verify room type exists
-    const roomType = await RoomType.findById(req.body.room_type)
+    const roomType = await RoomType.findById(req.body.roomType)
     if (!roomType) {
       return res.status(400).json({ success: false, message: "Invalid room type" })
     }
