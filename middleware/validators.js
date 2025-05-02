@@ -1,7 +1,6 @@
 import { body, param, validationResult } from "express-validator"
 import mongoose from "mongoose"
 
-// Middleware to check validation results
 export const validate = (req, res, next) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -10,7 +9,6 @@ export const validate = (req, res, next) => {
   next()
 }
 
-// Validate MongoDB ObjectId
 export const validateObjectId = (paramName) => {
   return param(paramName).custom((value) => {
     if (!mongoose.Types.ObjectId.isValid(value)) {
