@@ -13,7 +13,7 @@ export const getAllRooms = async (req, res) => {
       view,
       is_smoking_allowed,
       is_accessible,
-      room_type,
+      roomType,
       branch,
       has_smart_lock,
       sort = "number",
@@ -30,7 +30,7 @@ export const getAllRooms = async (req, res) => {
     if (view) filter.view = view
     if (is_smoking_allowed !== undefined) filter.is_smoking_allowed = is_smoking_allowed === "true"
     if (is_accessible !== undefined) filter.is_accessible = is_accessible === "true"
-    if (room_type) filter.room_type = room_type
+    if (roomType) filter.roomType = roomType
     if (branch) filter.branch = branch
     if (has_smart_lock !== undefined) filter.has_smart_lock = has_smart_lock === "true"
 
@@ -39,7 +39,7 @@ export const getAllRooms = async (req, res) => {
 
     // Execute query with pagination and sorting
     const rooms = await Room.find(filter)
-      .populate("room_type", "name base_price category")
+      .populate("roomType", "name basePice category")
       .sort(sort)
       .skip(skip)
       .limit(Number.parseInt(limit))
@@ -66,7 +66,7 @@ export const getAllRooms = async (req, res) => {
 // Get room by ID
 export const getRoomById = async (req, res) => {
   try {
-    const room = await Room.findById(req.params.id).populate("room_type").populate("connected_rooms", "number status")
+    const room = await Room.findById(req.params.id).populate("roomType")
 
     if (!room) {
       return res.status(404).json({ success: false, message: "Room not found" })
@@ -116,9 +116,9 @@ export const updateRoom = async (req, res) => {
   }
 
   try {
-    // If room_type is being updated, verify it exists
-    if (req.body.room_type) {
-      const roomType = await RoomType.findById(req.body.room_type)
+    // If roomType is being updated, verify it exists
+    if (req.body.roomType) {
+      const roomType = await RoomType.findById(req.body.roomType)
       if (!roomType) {
         return res.status(400).json({ success: false, message: "Invalid room type" })
       }
@@ -334,7 +334,7 @@ export const getAvailableRooms = async (req, res) => {
     // Build filter object
     const filter = { status: "available" }
 
-    if (roomType) filter.room_type = roomType
+    if (roomType) filter.roomType = roomType
     if (floor) filter.floor = floor
     if (building) filter.building = building
     if (view) filter.view = view
@@ -342,7 +342,7 @@ export const getAvailableRooms = async (req, res) => {
     if (isSmokingAllowed !== undefined) filter.is_smoking_allowed = isSmokingAllowed === "true"
 
     // Find rooms that match the criteria
-    const availableRooms = await Room.find(filter).populate("room_type", "name base_price category max_occupancy")
+    const availableRooms = await Room.find(filter).populate("roomType", "name base_price category max_occupancy")
 
     res.status(200).json({
       success: true,
