@@ -3,6 +3,8 @@ import { ApiError } from "../utils/apiError.js"
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, blacklistToken } from "../utils/tokenUtils.js"
 import { sendEmail } from "../utils/emailService.js"
 import crypto from "crypto"
+// Import the roleUtils at the top of the file
+import { assignDefaultRole } from "../utils/roleUtils.js"
 
 // Register new user
 export const register = async (req, res, next) => {
@@ -22,6 +24,9 @@ export const register = async (req, res, next) => {
       password,
       phone,
     })
+
+    // Assign default guest role
+    await assignDefaultRole(user._id, "guest")
 
     // Generate verification token
     const verificationToken = user.createEmailVerificationToken()
@@ -51,6 +56,16 @@ export const register = async (req, res, next) => {
           id: user._id,
           full_name: user.full_name,
           email: user.email,
+          phone: user.phone,
+          status: user.status,
+          is_email_verified: user.is_email_verified,
+          role: user.role
+            ? await user.populate("role").then(() => ({
+                id: user.role._id,
+                name: user.role.name,
+                description: user.role.description,
+              }))
+            : null,
         },
       })
     } catch (error) {
@@ -108,7 +123,23 @@ export const login = async (req, res, next) => {
     const accessToken = generateAccessToken(user._id)
     const refreshToken = generateRefreshToken(user._id)
 
-    // Send response
+    // Populate role and permissions
+    await user.populate({
+      path: "role",
+      populate: {
+        path: "permissions",
+        model: "Permission",
+        select: "key description category isGlobal", // Include all permission fields
+      },
+    })
+
+    // Populate custom permissions too
+    await user.populate({
+      path: "custom_permissions",
+      select: "key description category isGlobal",
+    })
+
+    // Send response with full permission details
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -118,7 +149,32 @@ export const login = async (req, res, next) => {
         id: user._id,
         full_name: user.full_name,
         email: user.email,
-        role: user.role ? await user.populate("role").then(() => user.role.name) : null,
+        phone: user.phone,
+        status: user.status,
+        last_login: user.last_login,
+        is_email_verified: user.is_email_verified,
+        role: user.role
+          ? {
+              id: user.role._id,
+              name: user.role.name,
+              description: user.role.description,
+              permissions: user.role.permissions.map((p) => ({
+                id: p._id,
+                key: p.key,
+                description: p.description,
+                category: p.category,
+                isGlobal: p.isGlobal,
+              })),
+            }
+          : null,
+        custom_permissions:
+          user.custom_permissions.map((p) => ({
+            id: p._id,
+            key: p.key,
+            description: p.description,
+            category: p.category,
+            isGlobal: p.isGlobal,
+          })) || [],
       },
     })
   } catch (error) {
@@ -319,13 +375,83 @@ export const getCurrentUser = async (req, res, next) => {
         populate: {
           path: "permissions",
           model: "Permission",
+          select: "key description category isGlobal",
         },
       })
-      .populate("custom_permissions")
+      .populate({
+        path: "custom_permissions",
+        select: "key description category isGlobal",
+      })
+
+    if (!user) {
+      return next(new ApiError("User not found", 404))
+    }
 
     res.status(200).json({
       success: true,
-      data: user,
+      data: {
+        id: user._id,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+        gender: user.gender,
+        dob: user.dob,
+        status: user.status,
+        last_login: user.last_login,
+        is_email_verified: user.is_email_verified,
+        national_id: user.national_id,
+        address: user.address,
+        department: user.department,
+        job_title: user.job_title,
+        branch: user.branch,
+        role: user.role
+          ? {
+              id: user.role._id,
+              name: user.role.name,
+              description: user.role.description,
+              permissions: user.role.permissions.map((p) => ({
+                id: p._id,
+                key: p.key,
+                description: p.description,
+                category: p.category,
+                isGlobal: p.isGlobal,
+              })),
+            }
+          : null,
+        custom_permissions:
+          user.custom_permissions.map((p) => ({
+            id: p._id,
+            key: p.key,
+            description: p.description,
+            category: p.category,
+            isGlobal: p.isGlobal,
+          })) || [],
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const switchHotelContext = async (req, res, next) => {
+  try {
+    const { chainCode, hotelId } = req.body
+
+    if (!chainCode) {
+      return next(new ApiError("Chain code is required", 400))
+    }
+
+    // Set active context
+    const context = await req.user.setActiveContext(chainCode, hotelId)
+
+    res.status(200).json({
+      success: true,
+      message: "Context switched successfully",
+      data: {
+        active_chain: context.chain,
+        active_hotel: context.hotel,
+      },
     })
   } catch (error) {
     next(error)

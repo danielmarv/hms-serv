@@ -7,7 +7,6 @@ const roomTypeSchema = new mongoose.Schema(
       required: [true, "Room type name is required"],
       unique: true,
       trim: true,
-      // Remove index: true if it exists
     },
     description: {
       type: String,
@@ -40,7 +39,7 @@ const roomTypeSchema = new mongoose.Schema(
       },
     ],
     size: {
-      type: Number, // in square feet/meters
+      type: Number,
       required: [true, "Room size is required"],
     },
     bedConfiguration: {
@@ -71,13 +70,11 @@ roomTypeSchema.virtual("rooms", {
   foreignField: "roomType",
 })
 
-// Virtual for available rooms count
 roomTypeSchema.virtual("availableRoomsCount").get(function () {
   if (!this.rooms) return 0
   return this.rooms.filter((room) => room.status === "available").length
 })
 
-// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
 roomTypeSchema.index({ name: 1 })
 roomTypeSchema.index({ basePrice: 1 })
 roomTypeSchema.index({ isActive: 1 })
