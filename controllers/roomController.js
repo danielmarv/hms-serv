@@ -40,7 +40,6 @@ export const getAllRooms = async (req, res) => {
       .skip(skip)
       .limit(Number.parseInt(limit))
 
-    // Get total count for pagination
     const total = await Room.countDocuments(filter)
 
     res.status(200).json({
