@@ -3,7 +3,6 @@ import RoomType from "../models/RoomType.js"
 import mongoose from "mongoose"
 import { validationResult } from "express-validator"
 
-// Get all rooms with optional filtering
 export const getAllRooms = async (req, res) => {
   try {
     const {
