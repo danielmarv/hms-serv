@@ -20,7 +20,6 @@ export const getAllRooms = async (req, res) => {
       page = 1,
     } = req.query
 
-    // Build filter object
     const filter = {}
 
     if (status) filter.status = status
