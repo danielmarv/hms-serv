@@ -32,10 +32,8 @@ export const getAllRooms = async (req, res) => {
     if (branch) filter.branch = branch
     if (has_smart_lock !== undefined) filter.has_smart_lock = has_smart_lock === "true"
 
-    // Calculate pagination
     const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
 
-    // Execute query with pagination and sorting
     const rooms = await Room.find(filter)
       .populate("roomType", "name basePice category")
       .sort(sort)
