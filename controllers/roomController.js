@@ -3,7 +3,6 @@ import RoomType from "../models/RoomType.js"
 import mongoose from "mongoose"
 import { validationResult } from "express-validator"
 
-// Get all rooms with optional filtering
 export const getAllRooms = async (req, res) => {
   try {
     const {
@@ -21,7 +20,6 @@ export const getAllRooms = async (req, res) => {
       page = 1,
     } = req.query
 
-    // Build filter object
     const filter = {}
 
     if (status) filter.status = status
@@ -34,17 +32,14 @@ export const getAllRooms = async (req, res) => {
     if (branch) filter.branch = branch
     if (has_smart_lock !== undefined) filter.has_smart_lock = has_smart_lock === "true"
 
-    // Calculate pagination
     const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
 
-    // Execute query with pagination and sorting
     const rooms = await Room.find(filter)
       .populate("roomType", "name basePice category")
       .sort(sort)
       .skip(skip)
       .limit(Number.parseInt(limit))
 
-    // Get total count for pagination
     const total = await Room.countDocuments(filter)
 
     res.status(200).json({
