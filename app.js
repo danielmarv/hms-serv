@@ -25,7 +25,7 @@ import crossHotelRoutes from "./routes/crossHotelRoutes.js"
 import dataSyncRoutes from "./routes/dataSyncRoutes.js"
 import hotelChainRoutes from "./routes/hotelChainRoutes.js"
 import hotelRoutes from "./routes/hotelRoutes.js"
-// import hotelConfigurationRoutes from "./routes/hotelConfigurationRoutes.js"
+import kitchenRoutes from "./routes/kitchenRoutes.js"
 
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
@@ -62,6 +62,7 @@ app.use("/api/permissions", permissionRoutes)
 app.use("/api/cross-hotel", crossHotelRoutes)
 app.use("/api/data-sync", dataSyncRoutes)
 app.use("/api/chains", hotelChainRoutes)
+app.use("/api/kitchen", kitchenRoutes)
 
 // Hotel management
 app.use("/api/hotels", hotelRoutes)
