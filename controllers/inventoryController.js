@@ -1,23 +1,13 @@
 import InventoryItem from "../models/Inventory.js"
-import StockTransaction from "../models/StockTransaction.js"
-import Supplier from "../models/Supplier.js"
+import InventoryTransaction from "../models/InventoryTransaction.js"
+import MenuItemIngredient from "../models/MenuItemIngredient.js"
+import MenuItem from "../models/MenuItem.js"
 import { ApiError } from "../utils/apiError.js"
 
 // Get all inventory items with filtering, pagination, and sorting
 export const getAllInventoryItems = async (req, res, next) => {
   try {
-    const {
-      search,
-      category,
-      supplier,
-      minStock,
-      maxStock,
-      stockStatus,
-      isActive,
-      page = 1,
-      limit = 20,
-      sort = "name",
-    } = req.query
+    const { search, category, stockStatus, supplier, isActive, page = 1, limit = 20, sort = "name" } = req.query
 
     // Build filter object
     const filter = {}
@@ -27,8 +17,8 @@ export const getAllInventoryItems = async (req, res, next) => {
       filter.$or = [
         { name: new RegExp(search, "i") },
         { description: new RegExp(search, "i") },
-        { sku: new RegExp(search, "i") },
-        { barcode: new RegExp(search, "i") },
+        { supplierName: new RegExp(search, "i") },
+        { supplierCode: new RegExp(search, "i") },
       ]
     }
 
@@ -36,30 +26,17 @@ export const getAllInventoryItems = async (req, res, next) => {
     if (supplier) filter.supplier = supplier
     if (isActive !== undefined) filter.isActive = isActive === "true"
 
-    // Stock level filters
-    if (minStock) filter.currentStock = { $gte: Number(minStock) }
-    if (maxStock) {
-      filter.currentStock = { ...filter.currentStock, $lte: Number(maxStock) }
-    }
-
     // Stock status filter
     if (stockStatus) {
       switch (stockStatus) {
+        case "Critical":
+          filter.currentStock = { $lte: "$minStockLevel" }
+          break
         case "Low":
-          filter.$expr = { $lte: ["$currentStock", "$minStockLevel"] }
+          filter.$and = [{ currentStock: { $gt: "$minStockLevel" } }, { currentStock: { $lte: "$reorderPoint" } }]
           break
-        case "Reorder":
-          filter.$expr = { $lte: ["$currentStock", "$reorderPoint"] }
-          break
-        case "Overstocked":
-          filter.$expr = { $gte: ["$currentStock", "$maxStockLevel"] }
-          break
-        case "Normal":
-          filter.$and = [
-            { $expr: { $gt: ["$currentStock", "$minStockLevel"] } },
-            { $expr: { $lt: ["$currentStock", "$maxStockLevel"] } },
-            { $expr: { $gt: ["$currentStock", "$reorderPoint"] } },
-          ]
+        case "Adequate":
+          filter.currentStock = { $gt: "$reorderPoint" }
           break
       }
     }
@@ -68,8 +45,10 @@ export const getAllInventoryItems = async (req, res, next) => {
     const skip = (Number(page) - 1) * Number(limit)
 
     // Execute query with pagination and sorting
-    const items = await InventoryItem.find(filter)
-      .populate("supplier", "name contact_person phone")
+    const inventoryItems = await InventoryItem.find(filter)
+      .populate("supplier", "name")
+      .populate("createdBy", "full_name")
+      .populate("updatedBy", "full_name")
       .sort(sort)
       .skip(skip)
       .limit(Number(limit))
@@ -79,14 +58,14 @@ export const getAllInventoryItems = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      count: items.length,
+      count: inventoryItems.length,
       total,
       pagination: {
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(total / Number(limit)),
       },
-      data: items,
+      data: inventoryItems,
     })
   } catch (error) {
     next(error)
@@ -96,18 +75,34 @@ export const getAllInventoryItems = async (req, res, next) => {
 // Get inventory item by ID
 export const getInventoryItemById = async (req, res, next) => {
   try {
-    const item = await InventoryItem.findById(req.params.id)
-      .populate("supplier", "name contact_person phone email")
+    const inventoryItem = await InventoryItem.findById(req.params.id)
+      .populate("supplier", "name contact_person email phone")
       .populate("createdBy", "full_name")
       .populate("updatedBy", "full_name")
 
-    if (!item) {
+    if (!inventoryItem) {
       return next(new ApiError("Inventory item not found", 404))
     }
 
+    // Get menu items that use this inventory item
+    const menuItemIngredients = await MenuItemIngredient.find({ inventoryItem: req.params.id }).populate(
+      "menuItem",
+      "name category price",
+    )
+
+    // Get recent transactions
+    const recentTransactions = await InventoryTransaction.find({ item: req.params.id })
+      .sort("-createdAt")
+      .limit(10)
+      .populate("createdBy", "full_name")
+
     res.status(200).json({
       success: true,
-      data: item,
+      data: {
+        inventoryItem,
+        menuItems: menuItemIngredients.map((mi) => mi.menuItem),
+        recentTransactions,
+      },
     })
   } catch (error) {
     next(error)
@@ -119,86 +114,74 @@ export const createInventoryItem = async (req, res, next) => {
   try {
     const {
       name,
-      description,
       category,
-      sku,
-      barcode,
       unit,
       unitPrice,
       currentStock,
       minStockLevel,
-      maxStockLevel,
       reorderPoint,
       reorderQuantity,
       location,
       supplier,
+      supplierName,
+      supplierCode,
       expiryDate,
       isPerishable,
-      isActive,
-      image,
-      tags,
+      description,
       notes,
+      isActive,
     } = req.body
 
-    // Check if SKU already exists
-    if (sku) {
-      const existingItem = await InventoryItem.findOne({ sku })
-      if (existingItem) {
-        return next(new ApiError("Item with this SKU already exists", 400))
-      }
-    }
-
-    // Validate supplier if provided
-    if (supplier) {
-      const supplierExists = await Supplier.findById(supplier)
-      if (!supplierExists) {
-        return next(new ApiError("Supplier not found", 404))
-      }
+    // Check if inventory item with same name already exists
+    const existingItem = await InventoryItem.findOne({ name })
+    if (existingItem) {
+      return next(new ApiError("Inventory item with this name already exists", 400))
     }
 
     // Create inventory item
-    const item = await InventoryItem.create({
+    const inventoryItem = await InventoryItem.create({
       name,
-      description,
       category,
-      sku,
-      barcode,
       unit,
       unitPrice,
       currentStock: currentStock || 0,
-      minStockLevel: minStockLevel || 0,
-      maxStockLevel: maxStockLevel || 0,
-      reorderPoint: reorderPoint || 0,
-      reorderQuantity: reorderQuantity || 0,
-      location,
+      minStockLevel: minStockLevel || 10,
+      reorderPoint: reorderPoint || 20,
+      reorderQuantity: reorderQuantity || 50,
+      location: location || "Main Storage",
       supplier,
+      supplierName,
+      supplierCode,
       expiryDate,
-      isPerishable: isPerishable || false,
-      isActive: isActive !== undefined ? isActive : true,
-      image,
-      tags,
+      isPerishable: isPerishable !== undefined ? isPerishable : false,
+      description,
       notes,
+      isActive: isActive !== undefined ? isActive : true,
       createdBy: req.user.id,
       updatedBy: req.user.id,
     })
 
-    // Create initial stock transaction if stock is provided
-    if (currentStock && currentStock > 0) {
-      await StockTransaction.create({
-        item: item._id,
-        type: "restock",
-        quantity: currentStock,
-        unit_price: unitPrice,
-        transaction_date: new Date(),
-        reason: "Initial stock",
-        performedBy: req.user.id,
-        status: "completed",
+    // Create initial inventory transaction if stock is not zero
+    if (inventoryItem.currentStock > 0) {
+      await InventoryTransaction.create({
+        item: inventoryItem._id,
+        transactionType: "Adjustment",
+        quantity: inventoryItem.currentStock,
+        unitPrice: inventoryItem.unitPrice,
+        totalPrice: inventoryItem.currentStock * inventoryItem.unitPrice,
+        previousStock: 0,
+        newStock: inventoryItem.currentStock,
+        reference: "Initial Stock",
+        referenceType: "Adjustment",
+        notes: "Initial inventory setup",
+        createdBy: req.user.id,
+        updatedBy: req.user.id,
       })
     }
 
     res.status(201).json({
       success: true,
-      data: item,
+      data: inventoryItem,
     })
   } catch (error) {
     next(error)
@@ -210,70 +193,56 @@ export const updateInventoryItem = async (req, res, next) => {
   try {
     const {
       name,
-      description,
       category,
-      sku,
-      barcode,
       unit,
       unitPrice,
       minStockLevel,
-      maxStockLevel,
       reorderPoint,
       reorderQuantity,
       location,
       supplier,
+      supplierName,
+      supplierCode,
       expiryDate,
       isPerishable,
-      isActive,
-      image,
-      tags,
+      description,
       notes,
+      isActive,
     } = req.body
 
-    const item = await InventoryItem.findById(req.params.id)
-    if (!item) {
+    const inventoryItem = await InventoryItem.findById(req.params.id)
+    if (!inventoryItem) {
       return next(new ApiError("Inventory item not found", 404))
     }
 
-    // Check if SKU is being changed and if it's already in use
-    if (sku && sku !== item.sku) {
-      const existingItem = await InventoryItem.findOne({ sku, _id: { $ne: req.params.id } })
+    // Check if name is being changed and if it's already in use
+    if (name && name !== inventoryItem.name) {
+      const existingItem = await InventoryItem.findOne({ name, _id: { $ne: req.params.id } })
       if (existingItem) {
-        return next(new ApiError("Item with this SKU already exists", 400))
-      }
-    }
-
-    // Validate supplier if provided
-    if (supplier) {
-      const supplierExists = await Supplier.findById(supplier)
-      if (!supplierExists) {
-        return next(new ApiError("Supplier not found", 404))
+        return next(new ApiError("Inventory item with this name already exists", 400))
       }
     }
 
     // Update inventory item
-    const updatedItem = await InventoryItem.findByIdAndUpdate(
+    const updatedInventoryItem = await InventoryItem.findByIdAndUpdate(
       req.params.id,
       {
         name,
-        description,
         category,
-        sku,
-        barcode,
         unit,
         unitPrice,
         minStockLevel,
-        maxStockLevel,
         reorderPoint,
         reorderQuantity,
         location,
         supplier,
+        supplierName,
+        supplierCode,
         expiryDate,
         isPerishable,
-        isActive,
-        image,
-        tags,
+        description,
         notes,
+        isActive,
         updatedBy: req.user.id,
       },
       { new: true, runValidators: true },
@@ -281,7 +250,7 @@ export const updateInventoryItem = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: updatedItem,
+      data: updatedInventoryItem,
     })
   } catch (error) {
     next(error)
@@ -291,20 +260,23 @@ export const updateInventoryItem = async (req, res, next) => {
 // Delete inventory item
 export const deleteInventoryItem = async (req, res, next) => {
   try {
-    const item = await InventoryItem.findById(req.params.id)
-    if (!item) {
+    const inventoryItem = await InventoryItem.findById(req.params.id)
+    if (!inventoryItem) {
       return next(new ApiError("Inventory item not found", 404))
     }
 
-    // Check if there are any transactions for this item
-    const transactionCount = await StockTransaction.countDocuments({ item: req.params.id })
-    if (transactionCount > 0) {
+    // Check if inventory item is used in any menu items
+    const menuItemCount = await MenuItemIngredient.countDocuments({ inventoryItem: req.params.id })
+    if (menuItemCount > 0) {
       return next(
-        new ApiError("Cannot delete item with existing transactions. Consider marking as inactive instead.", 400),
+        new ApiError(
+          `Cannot delete inventory item. It is used in ${menuItemCount} menu items. Consider marking as inactive instead.`,
+          400,
+        ),
       )
     }
 
-    await item.deleteOne()
+    await inventoryItem.deleteOne()
 
     res.status(200).json({
       success: true,
@@ -315,46 +287,76 @@ export const deleteInventoryItem = async (req, res, next) => {
   }
 }
 
-// Update stock level
-export const updateStockLevel = async (req, res, next) => {
+// Update inventory stock
+export const updateInventoryStock = async (req, res, next) => {
   try {
-    const { quantity, type, reason, unit_price, transaction_date, department, reference_number } = req.body
+    const { quantity, transactionType, unitPrice, reference, referenceType, referenceId, supplier, notes } = req.body
 
-    if (!quantity || !type) {
+    if (!quantity || !transactionType) {
       return next(new ApiError("Quantity and transaction type are required", 400))
     }
 
-    const item = await InventoryItem.findById(req.params.id)
-    if (!item) {
+    const inventoryItem = await InventoryItem.findById(req.params.id)
+    if (!inventoryItem) {
       return next(new ApiError("Inventory item not found", 404))
     }
 
-    // Create stock transaction
-    const transaction = await StockTransaction.create({
-      item: item._id,
-      type,
+    // Calculate new stock based on transaction type
+    const previousStock = inventoryItem.currentStock
+    let newStock = previousStock
+
+    switch (transactionType) {
+      case "Purchase":
+      case "Adjustment":
+      case "Return":
+        newStock = previousStock + Number(quantity)
+        break
+      case "Usage":
+      case "Waste":
+      case "Transfer":
+        if (previousStock < Number(quantity)) {
+          return next(new ApiError("Insufficient stock for this transaction", 400))
+        }
+        newStock = previousStock - Number(quantity)
+        break
+      default:
+        return next(new ApiError("Invalid transaction type", 400))
+    }
+
+    // Update inventory item stock
+    inventoryItem.currentStock = newStock
+    if (transactionType === "Purchase") {
+      inventoryItem.lastOrderDate = new Date()
+      inventoryItem.lastReceivedDate = new Date()
+    }
+    inventoryItem.lastCountDate = new Date()
+    inventoryItem.updatedBy = req.user.id
+    await inventoryItem.save()
+
+    // Create inventory transaction
+    const transaction = await InventoryTransaction.create({
+      item: inventoryItem._id,
+      transactionType,
       quantity: Number(quantity),
-      unit_price: unit_price || item.unitPrice,
-      transaction_date: transaction_date || new Date(),
-      department,
-      reference_number,
-      reason,
-      performedBy: req.user.id,
-      status: "completed",
+      unitPrice: unitPrice || inventoryItem.unitPrice,
+      totalPrice: Number(quantity) * (unitPrice || inventoryItem.unitPrice),
+      previousStock,
+      newStock,
+      reference,
+      referenceType,
+      referenceId,
+      supplier,
+      notes,
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
     })
-
-    // Item stock is updated by the StockTransaction post-save hook
-
-    // Fetch the updated item
-    const updatedItem = await InventoryItem.findById(req.params.id)
 
     res.status(200).json({
       success: true,
-      message: "Stock updated successfully",
+      message: `Inventory stock updated successfully. New stock: ${newStock} ${inventoryItem.unit}`,
       data: {
+        inventoryItem,
         transaction,
-        currentStock: updatedItem.currentStock,
-        stockStatus: updatedItem.stockStatus,
       },
     })
   } catch (error) {
@@ -362,24 +364,25 @@ export const updateStockLevel = async (req, res, next) => {
   }
 }
 
-// Get stock transactions for an item
-export const getItemTransactions = async (req, res, next) => {
+// Get inventory transactions
+export const getInventoryTransactions = async (req, res, next) => {
   try {
-    const { startDate, endDate, type, page = 1, limit = 20, sort = "-transaction_date" } = req.query
+    const { item, transactionType, startDate, endDate, page = 1, limit = 20, sort = "-createdAt" } = req.query
 
-    const filter = { item: req.params.id }
+    // Build filter object
+    const filter = {}
 
-    // Transaction type filter
-    if (type) filter.type = type
+    if (item) filter.item = item
+    if (transactionType) filter.transactionType = transactionType
 
     // Date range filter
     if (startDate || endDate) {
-      filter.transaction_date = {}
-      if (startDate) filter.transaction_date.$gte = new Date(startDate)
+      filter.createdAt = {}
+      if (startDate) filter.createdAt.$gte = new Date(startDate)
       if (endDate) {
         const endDateObj = new Date(endDate)
         endDateObj.setHours(23, 59, 59, 999)
-        filter.transaction_date.$lte = endDateObj
+        filter.createdAt.$lte = endDateObj
       }
     }
 
@@ -387,15 +390,16 @@ export const getItemTransactions = async (req, res, next) => {
     const skip = (Number(page) - 1) * Number(limit)
 
     // Execute query with pagination and sorting
-    const transactions = await StockTransaction.find(filter)
-      .populate("performedBy", "full_name")
-      .populate("approvedBy", "full_name")
+    const transactions = await InventoryTransaction.find(filter)
+      .populate("item", "name unit category")
+      .populate("supplier", "name")
+      .populate("createdBy", "full_name")
       .sort(sort)
       .skip(skip)
       .limit(Number(limit))
 
     // Get total count for pagination
-    const total = await StockTransaction.countDocuments(filter)
+    const total = await InventoryTransaction.countDocuments(filter)
 
     res.status(200).json({
       success: true,
@@ -413,88 +417,180 @@ export const getItemTransactions = async (req, res, next) => {
   }
 }
 
-// Get low stock items
-export const getLowStockItems = async (req, res, next) => {
+// Get inventory statistics
+export const getInventoryStats = async (req, res, next) => {
   try {
-    const items = await InventoryItem.find({
-      $expr: { $lte: ["$currentStock", "$reorderPoint"] },
-      isActive: true,
-    })
-      .populate("supplier", "name contact_person phone email")
-      .sort("name")
+    // Get inventory statistics
+    const stats = await InventoryItem.aggregate([
+      {
+        $facet: {
+          categoryStats: [
+            {
+              $group: {
+                _id: "$category",
+                count: { $sum: 1 },
+                totalValue: { $sum: { $multiply: ["$currentStock", "$unitPrice"] } },
+              },
+            },
+          ],
+          stockStatusStats: [
+            {
+              $project: {
+                name: 1,
+                currentStock: 1,
+                minStockLevel: 1,
+                reorderPoint: 1,
+                stockStatus: {
+                  $cond: {
+                    if: { $lte: ["$currentStock", "$minStockLevel"] },
+                    then: "Critical",
+                    else: {
+                      $cond: {
+                        if: { $lte: ["$currentStock", "$reorderPoint"] },
+                        then: "Low",
+                        else: "Adequate",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: "$stockStatus",
+                count: { $sum: 1 },
+              },
+            },
+          ],
+          totalStats: [
+            {
+              $group: {
+                _id: null,
+                totalItems: { $sum: 1 },
+                totalValue: { $sum: { $multiply: ["$currentStock", "$unitPrice"] } },
+                avgUnitPrice: { $avg: "$unitPrice" },
+              },
+            },
+          ],
+          lowStockItems: [
+            {
+              $match: {
+                $expr: {
+                  $lte: ["$currentStock", "$reorderPoint"],
+                },
+              },
+            },
+            {
+              $project: {
+                name: 1,
+                category: 1,
+                currentStock: 1,
+                minStockLevel: 1,
+                reorderPoint: 1,
+                unit: 1,
+                stockStatus: {
+                  $cond: {
+                    if: { $lte: ["$currentStock", "$minStockLevel"] },
+                    then: "Critical",
+                    else: "Low",
+                  },
+                },
+              },
+            },
+            { $sort: { stockStatus: 1, currentStock: 1 } },
+            { $limit: 10 },
+          ],
+        },
+      },
+    ])
 
     res.status(200).json({
       success: true,
-      count: items.length,
-      data: items,
+      data: {
+        byCategory: stats[0].categoryStats,
+        byStockStatus: stats[0].stockStatusStats,
+        totals: stats[0].totalStats[0] || {
+          totalItems: 0,
+          totalValue: 0,
+          avgUnitPrice: 0,
+        },
+        lowStockItems: stats[0].lowStockItems,
+      },
     })
   } catch (error) {
     next(error)
   }
 }
 
-// Get inventory statistics
-export const getInventoryStats = async (req, res, next) => {
+// Link menu item to inventory items
+export const linkMenuItemIngredients = async (req, res, next) => {
   try {
-    const stats = await InventoryItem.aggregate([
-      {
-        $facet: {
-          totalItems: [{ $count: "count" }],
-          activeItems: [{ $match: { isActive: true } }, { $count: "count" }],
-          totalValue: [
-            { $match: { isActive: true } },
-            { $group: { _id: null, value: { $sum: { $multiply: ["$currentStock", "$unitPrice"] } } } },
-          ],
-          categoryStats: [
-            { $match: { isActive: true } },
-            {
-              $group: {
-                _id: "$category",
-                count: { $sum: 1 },
-                value: { $sum: { $multiply: ["$currentStock", "$unitPrice"] } },
-              },
-            },
-            { $sort: { value: -1 } },
-          ],
-          stockStatus: [
-            { $match: { isActive: true } },
-            {
-              $group: {
-                _id: {
-                  $cond: [
-                    { $lte: ["$currentStock", "$minStockLevel"] },
-                    "Low",
-                    {
-                      $cond: [
-                        { $lte: ["$currentStock", "$reorderPoint"] },
-                        "Reorder",
-                        {
-                          $cond: [{ $gte: ["$currentStock", "$maxStockLevel"] }, "Overstocked", "Normal"],
-                        },
-                      ],
-                    },
-                  ],
-                },
-                count: { $sum: 1 },
-              },
-            },
-          ],
-        },
-      },
-    ])
+    const { menuItem, ingredients } = req.body
 
-    // Format the results
-    const formattedStats = {
-      totalItems: stats[0].totalItems[0]?.count || 0,
-      activeItems: stats[0].activeItems[0]?.count || 0,
-      totalValue: stats[0].totalValue[0]?.value || 0,
-      categoryStats: stats[0].categoryStats,
-      stockStatus: stats[0].stockStatus,
+    if (!menuItem || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+      return next(new ApiError("Menu item ID and ingredients array are required", 400))
     }
+
+    // Check if menu item exists
+    const menuItemExists = await MenuItem.findById(menuItem)
+    if (!menuItemExists) {
+      return next(new ApiError("Menu item not found", 404))
+    }
+
+    // Delete existing ingredients for this menu item
+    await MenuItemIngredient.deleteMany({ menuItem })
+
+    // Create new ingredients
+    const ingredientPromises = ingredients.map(async (ingredient) => {
+      const { inventoryItem, quantity, unit, isOptional, notes } = ingredient
+
+      // Check if inventory item exists
+      const inventoryItemExists = await InventoryItem.findById(inventoryItem)
+      if (!inventoryItemExists) {
+        throw new ApiError(`Inventory item with ID ${inventoryItem} not found`, 404)
+      }
+
+      return MenuItemIngredient.create({
+        menuItem,
+        inventoryItem,
+        quantity,
+        unit,
+        isOptional: isOptional !== undefined ? isOptional : false,
+        notes,
+        createdBy: req.user.id,
+        updatedBy: req.user.id,
+      })
+    })
+
+    await Promise.all(ingredientPromises)
+
+    // Get all ingredients for this menu item
+    const menuItemIngredients = await MenuItemIngredient.find({ menuItem }).populate(
+      "inventoryItem",
+      "name unit category currentStock",
+    )
 
     res.status(200).json({
       success: true,
-      data: formattedStats,
+      message: "Menu item ingredients updated successfully",
+      data: menuItemIngredients,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Get menu item ingredients
+export const getMenuItemIngredients = async (req, res, next) => {
+  try {
+    const menuItemIngredients = await MenuItemIngredient.find({ menuItem: req.params.id })
+      .populate("inventoryItem", "name unit category currentStock unitPrice")
+      .populate("menuItem", "name category price")
+
+    res.status(200).json({
+      success: true,
+      count: menuItemIngredients.length,
+      data: menuItemIngredients,
     })
   } catch (error) {
     next(error)
@@ -507,8 +603,9 @@ export default {
   createInventoryItem,
   updateInventoryItem,
   deleteInventoryItem,
-  updateStockLevel,
-  getItemTransactions,
-  getLowStockItems,
+  updateInventoryStock,
+  getInventoryTransactions,
   getInventoryStats,
+  linkMenuItemIngredients,
+  getMenuItemIngredients,
 }
