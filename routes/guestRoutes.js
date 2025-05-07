@@ -16,19 +16,14 @@ import { validateObjectId } from "../middleware/validators.js"
 
 const router = express.Router()
 
-// Apply authentication middleware to all routes
 router.use(authenticate)
 
-// Get all guests
 router.get("/", authorize(["admin", "manager", "receptionist"]), getAllGuests)
 
-// Get guest statistics
 router.get("/stats", authorize(["admin", "manager"]), getGuestStats)
 
-// Get guest by ID
 router.get("/:id", validateObjectId("id"), authorize(["admin", "manager", "receptionist", "staff"]), getGuestById)
 
-// Get guest booking history
 router.get(
   "/:id/bookings",
   validateObjectId("id"),

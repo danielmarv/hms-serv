@@ -6,35 +6,30 @@ const inventoryItemSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      unique: true,
     },
-    description: String,
     category: {
       type: String,
-      required: true,
       enum: [
-        "Food",
-        "Beverage",
+        "Meat",
+        "Seafood",
+        "Produce",
+        "Dairy",
+        "Bakery",
+        "Dry Goods",
+        "Spices",
+        "Beverages",
+        "Alcohol",
         "Cleaning",
-        "Toiletries",
-        "Linen",
-        "Office",
-        "Maintenance",
-        "Equipment",
-        "Furniture",
+        "Disposables",
         "Other",
       ],
+      required: true,
     },
-    sku: {
-      type: String,
-      unique: true,
-      sparse: true,
-      // Remove index: true if it exists
-    },
-    barcode: String,
     unit: {
       type: String,
       required: true,
-      enum: ["piece", "kg", "g", "l", "ml", "box", "carton", "pack", "set", "pair", "other"],
+      enum: ["kg", "g", "l", "ml", "unit", "dozen", "box", "bag", "bottle", "can", "package", "other"],
     },
     unitPrice: {
       type: Number,
@@ -43,50 +38,51 @@ const inventoryItemSchema = new mongoose.Schema(
     },
     currentStock: {
       type: Number,
-      default: 0,
+      required: true,
       min: 0,
+      default: 0,
     },
     minStockLevel: {
       type: Number,
-      default: 0,
+      required: true,
       min: 0,
-    },
-    maxStockLevel: {
-      type: Number,
-      default: 0,
-      min: 0,
+      default: 10,
     },
     reorderPoint: {
       type: Number,
-      default: 0,
+      required: true,
       min: 0,
+      default: 20,
     },
     reorderQuantity: {
       type: Number,
-      default: 0,
+      required: true,
       min: 0,
+      default: 50,
     },
     location: {
       type: String,
-      trim: true,
+      default: "Main Storage",
     },
     supplier: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Supplier",
     },
+    supplierName: String,
+    supplierCode: String,
     expiryDate: Date,
     isPerishable: {
       type: Boolean,
       default: false,
     },
+    description: String,
+    notes: String,
     isActive: {
       type: Boolean,
       default: true,
     },
-    image: String,
-    tags: [String],
-    notes: String,
-    lastRestockDate: Date,
+    lastOrderDate: Date,
+    lastReceivedDate: Date,
     lastCountDate: Date,
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -97,54 +93,27 @@ const inventoryItemSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  {
-    timestamps: true,
-    suppressReservedKeysWarning: true,
-  },
+  { timestamps: true },
 )
 
-// Generate SKU if not provided
-inventoryItemSchema.pre("save", async function (next) {
-  if (!this.sku && this.isNew) {
-    const category = this.category.substring(0, 3).toUpperCase()
-
-    // Find the highest SKU for this category
-    const latestItem = await this.constructor
-      .findOne({
-        sku: new RegExp(`^${category}-`),
-      })
-      .sort({ sku: -1 })
-
-    let sequence = 1
-    if (latestItem) {
-      const latestSequence = Number.parseInt(latestItem.sku.split("-")[1])
-      sequence = latestSequence + 1
-    }
-
-    this.sku = `${category}-${sequence.toString().padStart(5, "0")}`
-  }
-  next()
+// Virtual for total value
+inventoryItemSchema.virtual("totalValue").get(function () {
+  return this.currentStock * this.unitPrice
 })
 
 // Virtual for stock status
 inventoryItemSchema.virtual("stockStatus").get(function () {
-  if (this.currentStock <= this.minStockLevel) {
-    return "Low"
-  } else if (this.currentStock >= this.maxStockLevel) {
-    return "Overstocked"
-  } else if (this.currentStock <= this.reorderPoint) {
-    return "Reorder"
-  } else {
-    return "Normal"
-  }
+  if (this.currentStock <= this.minStockLevel) return "Critical"
+  if (this.currentStock <= this.reorderPoint) return "Low"
+  return "Adequate"
 })
 
-// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
-inventoryItemSchema.index({ category: 1 })
-inventoryItemSchema.index({ sku: 1 }, { unique: true, sparse: true })
+// Indexes for faster queries
 inventoryItemSchema.index({ name: 1 })
+inventoryItemSchema.index({ category: 1 })
 inventoryItemSchema.index({ supplier: 1 })
 inventoryItemSchema.index({ isActive: 1 })
+inventoryItemSchema.index({ stockStatus: 1 })
 
 const InventoryItem = mongoose.model("InventoryItem", inventoryItemSchema)
 export default InventoryItem
