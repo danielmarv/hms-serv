@@ -38,17 +38,91 @@ const orderItemSchema = new mongoose.Schema({
     default: "Pending",
   },
   preparedBy: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
   },
   servedAt: Date,
+  discountAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  discountReason: String,
+  isComplimentary: {
+    type: Boolean,
+    default: false,
+  },
+  complimentaryReason: String,
+})
+
+const paymentSchema = new mongoose.Schema({
+  method: {
+    type: String,
+    enum: ["Cash", "Credit Card", "Debit Card", "Mobile Payment", "Room Charge", "Gift Card", "Voucher", "Other"],
+    required: true,
+  },
+  amount: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  cardType: String,
+  cardLast4: String,
+  transactionId: String,
+  receiptNumber: String,
+  paidAt: {
+    type: Date,
+    default: Date.now,
+  },
+  processedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  notes: String,
+})
+
+const splitBillSchema = new mongoose.Schema({
+  name: String,
+  amount: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  items: [
+    {
+      menuItem: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "MenuItem",
+      },
+      quantity: Number,
+      amount: Number,
+    },
+  ],
+  paymentStatus: {
+    type: String,
+    enum: ["Pending", "Paid", "Partially Paid"],
+    default: "Pending",
+  },
+  payments: [paymentSchema],
 })
 
 const orderSchema = new mongoose.Schema(
   {
+    // Order Identification
     orderNumber: {
       type: String,
       unique: true,
-      // Remove index: true if it exists
+    },
+
+    // Associations
+    hotel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hotel",
+      required: true,
+    },
+    restaurant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
     },
     table: {
       type: mongoose.Schema.Types.ObjectId,
@@ -66,11 +140,25 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Booking",
     },
+
+    // Staff
     waiter: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    host: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    cashier: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    // Order Items
     items: [orderItemSchema],
+
+    // Financial Details
     subtotal: {
       type: Number,
       required: true,
@@ -97,6 +185,7 @@ const orderSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    discountReason: String,
     serviceChargePercentage: {
       type: Number,
       default: 0,
@@ -112,6 +201,31 @@ const orderSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    amountPaid: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    tip: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    change: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    // Payment Information
+    payments: [paymentSchema],
+    splitBills: [splitBillSchema],
+    isSplitBill: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Order Type and Status
     orderType: {
       type: String,
       enum: ["Dine In", "Room Service", "Takeaway", "Delivery"],
@@ -127,30 +241,65 @@ const orderSchema = new mongoose.Schema(
       enum: ["Pending", "Paid", "Partially Paid", "Complimentary", "Charged to Room"],
       default: "Pending",
     },
+
+    // Priority and Notes
+    priority: {
+      type: String,
+      enum: ["Low", "Normal", "High", "Rush", "VIP"],
+      default: "Normal",
+    },
     notes: String,
+    kitchenNotes: String,
+    allergyNotes: String,
+
+    // Customer Information (for takeaway/delivery)
     customerName: String,
     customerPhone: String,
     deliveryAddress: String,
     deliveryNotes: String,
-    priority: {
-      type: String,
-      enum: ["Normal", "High", "Rush"],
-      default: "Normal",
-    },
-    estimatedReadyTime: Date,
-    actualReadyTime: Date,
+
+    // Timing
     orderedAt: {
       type: Date,
       default: Date.now,
     },
+    estimatedReadyTime: Date,
+    actualReadyTime: Date,
+    servedAt: Date,
     completedAt: Date,
     cancelledAt: Date,
+
+    // Cancellation
     cancellationReason: String,
+
+    // Modifications
     wasModified: {
       type: Boolean,
       default: false,
     },
     modificationNotes: String,
+    modificationHistory: [
+      {
+        modifiedAt: Date,
+        modifiedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        changes: String,
+      },
+    ],
+
+    // Flags
+    isVIP: {
+      type: Boolean,
+      default: false,
+    },
+    isRush: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Audit Information
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -163,7 +312,8 @@ const orderSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    suppressReservedKeysWarning: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 )
 
@@ -221,6 +371,19 @@ orderSchema.pre("save", function (next) {
   // Calculate total
   this.totalAmount = this.subtotal + this.taxAmount + this.serviceChargeAmount - this.discountAmount
 
+  // Calculate amount paid
+  if (this.payments && this.payments.length > 0) {
+    this.amountPaid = this.payments.reduce((sum, payment) => sum + payment.amount, 0)
+  }
+
+  // Update payment status
+  if (this.amountPaid >= this.totalAmount) {
+    this.paymentStatus = "Paid"
+    this.change = this.amountPaid - this.totalAmount
+  } else if (this.amountPaid > 0) {
+    this.paymentStatus = "Partially Paid"
+  }
+
   next()
 })
 
@@ -231,8 +394,10 @@ orderSchema.pre("save", function (next) {
 
     if (allItemStatuses.every((status) => status === "Served")) {
       this.orderStatus = "Served"
+      if (!this.servedAt) this.servedAt = new Date()
     } else if (allItemStatuses.every((status) => status === "Ready")) {
       this.orderStatus = "Ready"
+      if (!this.actualReadyTime) this.actualReadyTime = new Date()
     } else if (allItemStatuses.some((status) => status === "In Progress" || status === "Ready")) {
       this.orderStatus = "In Progress"
     }
@@ -251,8 +416,28 @@ orderSchema.pre("save", function (next) {
   next()
 })
 
-// Indexes for faster queries - KEEP ONLY THESE, REMOVE ANY index: true FROM FIELDS ABOVE
+// Virtual for balance due
+orderSchema.virtual("balanceDue").get(function () {
+  return Math.max(0, this.totalAmount - this.amountPaid)
+})
+
+// Virtual for order age
+orderSchema.virtual("orderAge").get(function () {
+  return Math.floor((new Date() - this.orderedAt) / (1000 * 60)) // in minutes
+})
+
+// Virtual for kitchen orders
+orderSchema.virtual("kitchenOrders", {
+  ref: "KitchenOrder",
+  localField: "_id",
+  foreignField: "order",
+  justOne: false,
+})
+
+// Indexes for faster queries
 orderSchema.index({ orderNumber: 1 }, { unique: true })
+orderSchema.index({ hotel: 1 })
+orderSchema.index({ restaurant: 1 })
 orderSchema.index({ table: 1 })
 orderSchema.index({ room: 1 })
 orderSchema.index({ guest: 1 })
@@ -261,6 +446,7 @@ orderSchema.index({ orderStatus: 1 })
 orderSchema.index({ paymentStatus: 1 })
 orderSchema.index({ orderedAt: 1 })
 orderSchema.index({ orderType: 1 })
+orderSchema.index({ waiter: 1 })
 
 const Order = mongoose.model("Order", orderSchema)
 export default Order
