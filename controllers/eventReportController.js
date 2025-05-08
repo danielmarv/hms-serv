@@ -335,7 +335,7 @@ export const getVenueUtilizationReport = async (req, res) => {
     }).lean()
 
     const venueData = venues.map((venue) => {
-      // Calculate business hours per day
+
       const startHour = Number.parseInt(venue.availability.start_time.split(":")[0])
       const endHour = Number.parseInt(venue.availability.end_time.split(":")[0])
       const hoursPerDay = endHour - startHour
