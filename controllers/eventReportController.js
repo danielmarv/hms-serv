@@ -276,7 +276,6 @@ export const getEventTypeReport = async (req, res) => {
       }
     })
 
-    // Calculate totals
     const totalEvents = formattedData.reduce((sum, item) => sum + item.total_events, 0)
     const totalConfirmed = formattedData.reduce((sum, item) => sum + item.confirmed_events, 0)
     const totalCancelled = formattedData.reduce((sum, item) => sum + item.cancelled_events, 0)
