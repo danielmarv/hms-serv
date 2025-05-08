@@ -365,13 +365,12 @@ export const getVenueUtilizationReport = async (req, res) => {
       }
     })
 
-    // Build match stage for bookings
     const matchStage = {
       hotel_id: mongoose.Types.ObjectId(hotel_id),
       is_deleted: false,
       status: { $in: ["confirmed", "completed"] },
       $or: [
-        // Booking starts during the range
+
         { start_date: { $gte: startDateTime, $lte: endDateTime } },
         // Booking ends during the range
         { end_date: { $gte: startDateTime, $lte: endDateTime } },
