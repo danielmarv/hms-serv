@@ -1,85 +1,37 @@
-const express = require("express")
+import express from "express"
+import { authenticate, authorize } from "../middleware/auth.js"
+import * as eventBookingController from "../controllers/eventBookingController.js"
+import { validateBookingRequest } from "../middleware/validationMiddleware.js"
+
 const router = express.Router()
-const eventBookingController = require("../controllers/eventBookingController")
-const { authenticate } = require("../middleware/authMiddleware")
-const { authorize } = require("../middleware/roleMiddleware")
-const { validateEventBooking } = require("../middleware/validationMiddleware")
 
-// Get all event bookings
-router.get(
-  "/",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventBookingController.getAllEventBookings,
-)
+// Apply authentication to all booking routes
+router.use(authenticate)
 
-// Get event booking by ID
-router.get("/:id", authenticate, eventBookingController.getEventBookingById)
+// Booking management routes
+router.get("/", authorize(["bookings.view"]), eventBookingController.getAllBookings)
 
-// Create new event booking
+router.get("/:id", authorize(["bookings.view"]), eventBookingController.getBookingById)
+
+router.post("/", authorize(["bookings.create"]), validateBookingRequest, eventBookingController.createBooking)
+
+router.put("/:id", authorize(["bookings.update"]), validateBookingRequest, eventBookingController.updateBooking)
+
+router.delete("/:id", authorize(["bookings.delete"]), eventBookingController.deleteBooking)
+
+// Booking status routes
+router.patch("/:id/status", authorize(["bookings.update"]), eventBookingController.updateBookingStatus)
+
+// Booking payment routes
 router.post(
-  "/",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  validateEventBooking,
-  eventBookingController.createEventBooking,
+  "/:id/payments",
+  authorize(["bookings.update", "payments.create"]),
+  eventBookingController.addBookingPayment,
 )
 
-// Update event booking
-router.put(
-  "/:id",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  validateEventBooking,
-  eventBookingController.updateEventBooking,
-)
+// Booking confirmation routes
+router.post("/:id/confirm", authorize(["bookings.update"]), eventBookingController.confirmBooking)
 
-// Delete event booking
-router.delete(
-  "/:id",
-  authenticate,
-  authorize(["admin", "manager", "events_manager"]),
-  eventBookingController.deleteEventBooking,
-)
+router.post("/:id/cancel", authorize(["bookings.update"]), eventBookingController.cancelBooking)
 
-// Confirm event booking
-router.patch(
-  "/:id/confirm",
-  authenticate,
-  authorize(["admin", "manager", "events_manager"]),
-  eventBookingController.confirmEventBooking,
-)
-
-// Cancel event booking
-router.patch(
-  "/:id/cancel",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventBookingController.cancelEventBooking,
-)
-
-// Get bookings by date range
-router.get(
-  "/date-range",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventBookingController.getBookingsByDateRange,
-)
-
-// Get bookings by venue
-router.get(
-  "/venue/:venueId",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventBookingController.getBookingsByVenue,
-)
-
-// Get bookings by customer
-router.get(
-  "/customer/:customerId",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventBookingController.getBookingsByCustomer,
-)
-
-module.exports = router
+export default router

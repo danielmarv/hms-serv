@@ -1,59 +1,28 @@
 import express from "express"
+import { authenticate, authorize } from "../middleware/auth.js"
 import * as eventVenueController from "../controllers/eventVenueController.js"
-import { validateEventVenue } from "../middleware/validationMiddleware.js"
+import { validateVenueRequest } from "../middleware/validationMiddleware.js"
 
 const router = express.Router()
 
-// Get all event venues
-router.get("/", eventVenueController.getAllEventVenues)
+// Apply authentication to all venue routes
+router.use(authenticate)
 
-// Get event venue by ID
-router.get("/:id", eventVenueController.getEventVenueById)
+// Venue management routes
+router.get("/", authorize(["venues.view"]), eventVenueController.getAllVenues)
 
-// Create new event venue
-router.post(
-  "/",
-  authorize(["admin", "manager", "events_manager"]),
-  validateEventVenue,
-  eventVenueController.createEventVenue,
-)
+router.get("/:id", authorize(["venues.view"]), eventVenueController.getVenueById)
 
-// Update event venue
-router.put(
-  "/:id",
-  authorize(["admin", "manager", "events_manager"]),
-  validateEventVenue,
-  eventVenueController.updateEventVenue,
-)
+router.post("/", authorize(["venues.create"]), validateVenueRequest, eventVenueController.createVenue)
 
-// Delete event venue
-router.delete("/:id", authorize(["admin", "manager"]), eventVenueController.deleteEventVenue)
+router.put("/:id", authorize(["venues.update"]), validateVenueRequest, eventVenueController.updateVenue)
 
-// Get venue availability
-router.get("/:id/availability", eventVenueController.getVenueAvailability)
+router.delete("/:id", authorize(["venues.delete"]), eventVenueController.deleteVenue)
 
-// Get venue bookings
-router.get(
-  "/:id/bookings",
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventVenueController.getVenueBookings,
-)
+// Venue availability routes
+router.get("/:id/availability", authorize(["venues.view"]), eventVenueController.getVenueAvailability)
 
-// Get venue statistics
-router.get(
-  "/:id/statistics",
-  authorize(["admin", "manager", "events_manager"]),
-  eventVenueController.getVenueStatistics,
-)
-
-// Get venues by hotel
-router.get("/hotel/:hotelId", eventVenueController.getVenuesByHotel)
-
-// Add venue maintenance schedule
-router.post(
-  "/:id/maintenance",
-  authorize(["admin", "manager", "maintenance_manager"]),
-  eventVenueController.addMaintenanceSchedule,
-)
+// Venue bookings routes
+router.get("/:id/bookings", authorize(["venues.view", "bookings.view"]), eventVenueController.getVenueBookings)
 
 export default router

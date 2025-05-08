@@ -259,23 +259,57 @@ export const validateTemplateRequest = [
     .notEmpty()
     .withMessage("Template name is required")
     .isLength({ min: 3, max: 100 })
-    .withMessage("Template name must be between 3 and 100 characters"),
+    .withMessage("Name must be between 3 and 100 characters"),
 
-  body("description").optional().isLength({ max: 1000 }).withMessage("Description cannot exceed 1000 characters"),
+  body("eventType").notEmpty().withMessage("Event type is required").isMongoId().withMessage("Invalid event type ID"),
 
-  body("hotel_id").notEmpty().withMessage("Hotel ID is required").isMongoId().withMessage("Invalid hotel ID format"),
+  body("venue").notEmpty().withMessage("Venue is required").isMongoId().withMessage("Invalid venue ID"),
 
-  body("event_type_id").optional().isMongoId().withMessage("Invalid event type ID format"),
+  body("duration")
+    .notEmpty()
+    .withMessage("Duration is required")
+    .isInt({ min: 1 })
+    .withMessage("Duration must be a positive integer"),
 
-  body("duration").optional().isInt({ min: 1 }).withMessage("Duration must be a positive number"),
+  body("capacity").optional().isInt({ min: 1 }).withMessage("Capacity must be a positive integer"),
+
+  body("basePrice")
+    .notEmpty()
+    .withMessage("Base price is required")
+    .isFloat({ min: 0 })
+    .withMessage("Base price must be a positive number"),
 
   body("services").optional().isArray().withMessage("Services must be an array"),
 
+  body("services.*").optional().isMongoId().withMessage("Invalid service ID"),
+
   body("staffing").optional().isArray().withMessage("Staffing must be an array"),
 
-  body("status").optional().isIn(["active", "inactive"]).withMessage("Invalid status value"),
+  body("staffing.*.role").optional().notEmpty().withMessage("Staff role is required"),
 
-  validateRequest,
+  body("staffing.*.count").optional().isInt({ min: 1 }).withMessage("Staff count must be a positive integer"),
+
+  body("setupTime").optional().isInt({ min: 0 }).withMessage("Setup time must be a non-negative integer"),
+
+  body("teardownTime").optional().isInt({ min: 0 }).withMessage("Teardown time must be a non-negative integer"),
+
+  body("includedItems").optional().isArray().withMessage("Included items must be an array"),
+
+  body("terms").optional().isString().withMessage("Terms must be a string"),
+
+  body("isActive").optional().isBoolean().withMessage("isActive must be a boolean"),
+
+  body("hotelId").notEmpty().withMessage("Hotel ID is required").isMongoId().withMessage("Invalid hotel ID"),
+
+  // Validation middleware handler
+  (req, res, next) => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      const firstError = errors.array()[0]
+      return next(new ApiError(400, firstError.msg))
+    }
+    next()
+  },
 ]
 
 // Feedback validation
@@ -304,3 +338,5 @@ export const validateFeedbackRequest = [
 
   validateRequest,
 ]
+
+// Add other validation middleware as needed

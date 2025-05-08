@@ -1,398 +1,208 @@
+import mongoose from "mongoose"
 import EventTemplate from "../models/EventTemplate.js"
-import EventType from "../models/EventType.js"
-import EventVenue from "../models/EventVenue.js"
-import EventService from "../models/EventService.js"
-import EventBooking from "../models/EventBooking.js"
-import { successResponse, errorResponse } from "../utils/responseHandler.js"
+import Event from "../models/Event.js"
+import { ApiError } from "../utils/apiError.js"
+import { ApiResponse } from "../utils/apiResponse.js"
+import asyncHandler from "../utils/asyncHandler.js"
 
 /**
  * Get all event templates
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * @route GET /api/event-templates
+ * @access Private (templates.view)
  */
-export const getAllTemplates = async (req, res) => {
-  try {
-    const { hotel, eventType, isActive, limit = 20, page = 1 } = req.query
-    const skip = (page - 1) * limit
+export const getAllTemplates = asyncHandler(async (req, res) => {
+  const { hotelId } = req.query
 
-    const query = {}
-    if (hotel) query.hotel = hotel
-    if (eventType) query.eventType = eventType
-    if (isActive !== undefined) query.isActive = isActive === "true"
-
-    const templates = await EventTemplate.find(query)
-      .populate("eventType", "name description")
-      .populate("venue", "name capacity")
-      .populate("services.service", "name price")
-      .sort({ name: 1 })
-      .skip(skip)
-      .limit(Number.parseInt(limit))
-
-    const total = await EventTemplate.countDocuments(query)
-
-    return successResponse(res, {
-      templates,
-      pagination: {
-        total,
-        page: Number.parseInt(page),
-        pages: Math.ceil(total / limit),
-        limit: Number.parseInt(limit),
-      },
-    })
-  } catch (error) {
-    return errorResponse(res, "Failed to fetch event templates", 500, error)
+  const filter = {}
+  if (hotelId) {
+    filter.hotelId = hotelId
   }
-}
+
+  const templates = await EventTemplate.find(filter)
+    .sort({ name: 1 })
+    .populate("eventType", "name color")
+    .populate("venue", "name capacity")
+    .lean()
+
+  return res.status(200).json(new ApiResponse(200, templates, "Event templates retrieved successfully"))
+})
 
 /**
- * Get template by ID
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Get a specific event template by ID
+ * @route GET /api/event-templates/:id
+ * @access Private (templates.view)
  */
-export const getTemplateById = async (req, res) => {
-  try {
-    const template = await EventTemplate.findById(req.params.id)
-      .populate("eventType", "name description")
-      .populate("venue", "name capacity location")
-      .populate("services.service", "name description price category")
-      .populate("createdBy", "firstName lastName")
-      .populate("updatedBy", "firstName lastName")
+export const getTemplateById = asyncHandler(async (req, res) => {
+  const { id } = req.params
 
-    if (!template) {
-      return errorResponse(res, "Event template not found", 404)
-    }
+  const template = await EventTemplate.findById(id)
+    .populate("eventType", "name color")
+    .populate("venue", "name capacity")
+    .populate("services", "name price description")
+    .populate("staffing", "role count")
+    .lean()
 
-    return successResponse(res, { template })
-  } catch (error) {
-    return errorResponse(res, "Failed to fetch event template", 500, error)
+  if (!template) {
+    throw new ApiError(404, "Event template not found")
   }
-}
+
+  return res.status(200).json(new ApiResponse(200, template, "Event template retrieved successfully"))
+})
 
 /**
- * Create new event template
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Create a new event template
+ * @route POST /api/event-templates
+ * @access Private (templates.create)
  */
-export const createTemplate = async (req, res) => {
-  try {
-    const {
-      name,
-      description,
-      hotel,
-      eventType,
-      venue,
-      duration,
-      setupTime,
-      teardownTime,
-      services,
-      guestCapacity,
-      defaultPrice,
-      isActive,
-      settings,
-    } = req.body
+export const createTemplate = asyncHandler(async (req, res) => {
+  const {
+    name,
+    description,
+    eventType,
+    venue,
+    duration,
+    capacity,
+    basePrice,
+    services,
+    staffing,
+    setupTime,
+    teardownTime,
+    includedItems,
+    terms,
+    isActive,
+    hotelId,
+  } = req.body
 
-    // Validate event type exists
-    if (eventType) {
-      const eventTypeExists = await EventType.findOne({ _id: eventType, hotel })
-      if (!eventTypeExists) {
-        return errorResponse(res, "Event type not found or does not belong to this hotel", 404)
-      }
-    }
+  // Create the template
+  const template = await EventTemplate.create({
+    name,
+    description,
+    eventType,
+    venue,
+    duration,
+    capacity,
+    basePrice,
+    services,
+    staffing,
+    setupTime,
+    teardownTime,
+    includedItems,
+    terms,
+    isActive,
+    hotelId,
+    createdBy: req.user._id,
+  })
 
-    // Validate venue exists
-    if (venue) {
-      const venueExists = await EventVenue.findOne({ _id: venue, hotel })
-      if (!venueExists) {
-        return errorResponse(res, "Venue not found or does not belong to this hotel", 404)
-      }
-    }
-
-    // Validate services
-    if (services && services.length > 0) {
-      const serviceIds = services.map((s) => s.service)
-      const validServices = await EventService.find({
-        _id: { $in: serviceIds },
-        hotel,
-      })
-
-      if (validServices.length !== serviceIds.length) {
-        return errorResponse(res, "One or more services are invalid or do not belong to this hotel", 400)
-      }
-    }
-
-    const newTemplate = new EventTemplate({
-      name,
-      description,
-      hotel,
-      eventType,
-      venue,
-      duration,
-      setupTime,
-      teardownTime,
-      services: services || [],
-      guestCapacity,
-      defaultPrice,
-      isActive: isActive !== undefined ? isActive : true,
-      settings: settings || {},
-      createdBy: req.user._id,
-    })
-
-    await newTemplate.save()
-
-    return successResponse(res, { template: newTemplate }, 201)
-  } catch (error) {
-    return errorResponse(res, "Failed to create event template", 500, error)
-  }
-}
+  return res.status(201).json(new ApiResponse(201, template, "Event template created successfully"))
+})
 
 /**
- * Update event template
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Update an existing event template
+ * @route PUT /api/event-templates/:id
+ * @access Private (templates.update)
  */
-export const updateTemplate = async (req, res) => {
+export const updateTemplate = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const updateData = req.body
+
+  const template = await EventTemplate.findById(id)
+
+  if (!template) {
+    throw new ApiError(404, "Event template not found")
+  }
+
+  // Update the template
+  const updatedTemplate = await EventTemplate.findByIdAndUpdate(
+    id,
+    {
+      ...updateData,
+      updatedBy: req.user._id,
+      updatedAt: Date.now(),
+    },
+    { new: true, runValidators: true },
+  )
+
+  return res.status(200).json(new ApiResponse(200, updatedTemplate, "Event template updated successfully"))
+})
+
+/**
+ * Delete an event template
+ * @route DELETE /api/event-templates/:id
+ * @access Private (templates.delete)
+ */
+export const deleteTemplate = asyncHandler(async (req, res) => {
+  const { id } = req.params
+
+  const template = await EventTemplate.findById(id)
+
+  if (!template) {
+    throw new ApiError(404, "Event template not found")
+  }
+
+  await EventTemplate.findByIdAndDelete(id)
+
+  return res.status(200).json(new ApiResponse(200, {}, "Event template deleted successfully"))
+})
+
+/**
+ * Apply a template to create a new event
+ * @route POST /api/event-templates/:id/apply
+ * @access Private (templates.view, events.create)
+ */
+export const applyTemplate = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const { startDate, endDate, customName, customPrice, guestId, notes } = req.body
+
+  const template = await EventTemplate.findById(id)
+    .populate("eventType")
+    .populate("venue")
+    .populate("services")
+    .populate("staffing")
+
+  if (!template) {
+    throw new ApiError(404, "Event template not found")
+  }
+
+  // Start a transaction
+  const session = await mongoose.startSession()
+  session.startTransaction()
+
   try {
-    const { eventType, venue, services, hotel } = req.body
-
-    // Validate event type if provided
-    if (eventType) {
-      const eventTypeExists = await EventType.findOne({
-        _id: eventType,
-        hotel: hotel || req.body.hotel,
-      })
-      if (!eventTypeExists) {
-        return errorResponse(res, "Event type not found or does not belong to this hotel", 404)
-      }
-    }
-
-    // Validate venue if provided
-    if (venue) {
-      const venueExists = await EventVenue.findOne({
-        _id: venue,
-        hotel: hotel || req.body.hotel,
-      })
-      if (!venueExists) {
-        return errorResponse(res, "Venue not found or does not belong to this hotel", 404)
-      }
-    }
-
-    // Validate services if provided
-    if (services && services.length > 0) {
-      const serviceIds = services.map((s) => s.service)
-      const validServices = await EventService.find({
-        _id: { $in: serviceIds },
-        hotel: hotel || req.body.hotel,
-      })
-
-      if (validServices.length !== serviceIds.length) {
-        return errorResponse(res, "One or more services are invalid or do not belong to this hotel", 400)
-      }
-    }
-
-    // Add user ID to updated by field
-    req.body.updatedBy = req.user._id
-
-    const template = await EventTemplate.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true },
+    // Create the event based on the template
+    const event = await Event.create(
+      [
+        {
+          name: customName || template.name,
+          eventType: template.eventType._id,
+          venue: template.venue._id,
+          startDate,
+          endDate,
+          duration: template.duration,
+          capacity: template.capacity,
+          price: customPrice || template.basePrice,
+          services: template.services.map((service) => service._id),
+          staffing: template.staffing,
+          setupTime: template.setupTime,
+          teardownTime: template.teardownTime,
+          status: "confirmed",
+          guestId,
+          notes,
+          terms: template.terms,
+          hotelId: template.hotelId,
+          createdFrom: template._id,
+          createdBy: req.user._id,
+        },
+      ],
+      { session },
     )
-      .populate("eventType", "name description")
-      .populate("venue", "name capacity")
-      .populate("services.service", "name price")
 
-    if (!template) {
-      return errorResponse(res, "Event template not found", 404)
-    }
+    await session.commitTransaction()
 
-    return successResponse(res, { template })
+    return res.status(201).json(new ApiResponse(201, event[0], "Event created from template successfully"))
   } catch (error) {
-    return errorResponse(res, "Failed to update event template", 500, error)
+    await session.abortTransaction()
+    throw new ApiError(500, error.message || "Failed to create event from template")
+  } finally {
+    session.endSession()
   }
-}
-
-/**
- * Delete event template
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const deleteTemplate = async (req, res) => {
-  try {
-    const template = await EventTemplate.findByIdAndDelete(req.params.id)
-
-    if (!template) {
-      return errorResponse(res, "Event template not found", 404)
-    }
-
-    return successResponse(res, { message: "Event template deleted successfully" })
-  } catch (error) {
-    return errorResponse(res, "Failed to delete event template", 500, error)
-  }
-}
-
-/**
- * Create event from template
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const createEventFromTemplate = async (req, res) => {
-  try {
-    const { templateId } = req.params
-    const { eventName, customer, startDate, endDate, guestCount, specialRequests, customFields } = req.body
-
-    if (!eventName || !customer || !startDate || !endDate) {
-      return errorResponse(res, "Event name, customer, start date, and end date are required", 400)
-    }
-
-    // Get template
-    const template = await EventTemplate.findById(templateId).populate("services.service", "price")
-
-    if (!template) {
-      return errorResponse(res, "Event template not found", 404)
-    }
-
-    // Calculate total price
-    let totalAmount = template.defaultPrice || 0
-
-    // Add service prices
-    if (template.services && template.services.length > 0) {
-      template.services.forEach((service) => {
-        if (service.service && service.service.price) {
-          totalAmount += service.service.price * (service.quantity || 1)
-        }
-      })
-    }
-
-    // Create new event booking
-    const newEvent = new EventBooking({
-      eventName,
-      customer,
-      hotel: template.hotel,
-      eventType: template.eventType,
-      venue: template.venue,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      setupTime: template.setupTime,
-      teardownTime: template.teardownTime,
-      guestCount: guestCount || template.guestCapacity,
-      services: template.services,
-      totalAmount,
-      status: "pending",
-      specialRequests,
-      customFields,
-      createdFrom: {
-        template: template._id,
-        name: template.name,
-      },
-      createdBy: req.user._id,
-    })
-
-    await newEvent.save()
-
-    return successResponse(
-      res,
-      {
-        message: "Event created successfully from template",
-        event: newEvent,
-      },
-      201,
-    )
-  } catch (error) {
-    return errorResponse(res, "Failed to create event from template", 500, error)
-  }
-}
-
-/**
- * Get templates by event type
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const getTemplatesByEventType = async (req, res) => {
-  try {
-    const { eventTypeId } = req.params
-    const { hotel, isActive = true } = req.query
-
-    if (!hotel) {
-      return errorResponse(res, "Hotel ID is required", 400)
-    }
-
-    const templates = await EventTemplate.find({
-      eventType: eventTypeId,
-      hotel,
-      isActive: isActive === "true",
-    })
-      .populate("venue", "name capacity")
-      .sort({ name: 1 })
-
-    return successResponse(res, { templates })
-  } catch (error) {
-    return errorResponse(res, "Failed to fetch templates by event type", 500, error)
-  }
-}
-
-/**
- * Save event as template
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const saveEventAsTemplate = async (req, res) => {
-  try {
-    const { eventId } = req.params
-    const { name, description } = req.body
-
-    if (!name) {
-      return errorResponse(res, "Template name is required", 400)
-    }
-
-    // Get event
-    const event = await EventBooking.findById(eventId)
-    if (!event) {
-      return errorResponse(res, "Event not found", 404)
-    }
-
-    // Check if template with same name exists
-    const existingTemplate = await EventTemplate.findOne({
-      name,
-      hotel: event.hotel,
-    })
-
-    if (existingTemplate) {
-      return errorResponse(res, "Template with this name already exists", 400)
-    }
-
-    // Create template from event
-    const newTemplate = new EventTemplate({
-      name,
-      description: description || `Template created from event: ${event.eventName}`,
-      hotel: event.hotel,
-      eventType: event.eventType,
-      venue: event.venue,
-      duration: Math.ceil((event.endDate - event.startDate) / (1000 * 60 * 60)),
-      setupTime: event.setupTime,
-      teardownTime: event.teardownTime,
-      services: event.services,
-      guestCapacity: event.guestCount,
-      defaultPrice: event.totalAmount,
-      isActive: true,
-      settings: event.settings || {},
-      createdFrom: {
-        event: event._id,
-        name: event.eventName,
-      },
-      createdBy: req.user._id,
-    })
-
-    await newTemplate.save()
-
-    return successResponse(
-      res,
-      {
-        message: "Template created successfully from event",
-        template: newTemplate,
-      },
-      201,
-    )
-  } catch (error) {
-    return errorResponse(res, "Failed to save event as template", 500, error)
-  }
-}
+})

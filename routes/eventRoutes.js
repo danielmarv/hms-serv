@@ -1,27 +1,27 @@
 import express from "express"
-import eventVenueRoutes from "./eventVenueRoutes.js"
-import eventTypeRoutes from "./eventTypeRoutes.js"
-import eventBookingRoutes from "./eventBookingRoutes.js"
-import eventServiceRoutes from "./eventServiceRoutes.js"
-import eventPackageRoutes from "./eventPackageRoutes.js"
-import eventTemplateRoutes from "./eventTemplateRoutes.js"
-import eventStaffingRoutes from "./eventStaffingRoutes.js"
-import eventFeedbackRoutes from "./eventFeedbackRoutes.js"
-import eventCalendarRoutes from "./eventCalendarRoutes.js"
-import eventReportRoutes from "./eventReportRoutes.js"
+import { authenticate, authorize } from "../middleware/auth.js"
+import * as eventController from "../controllers/eventController.js"
+import { validateEventRequest } from "../middleware/validationMiddleware.js"
 
 const router = express.Router()
 
-// Mount all event-related routes
-router.use("/venues", eventVenueRoutes)
-router.use("/types", eventTypeRoutes)
-router.use("/bookings", eventBookingRoutes)
-router.use("/services", eventServiceRoutes)
-router.use("/packages", eventPackageRoutes)
-router.use("/templates", eventTemplateRoutes)
-router.use("/staffing", eventStaffingRoutes)
-router.use("/feedback", eventFeedbackRoutes)
-router.use("/calendar", eventCalendarRoutes)
-router.use("/reports", eventReportRoutes)
+// Apply authentication to all event routes
+router.use(authenticate)
+
+// Event management routes
+router.get("/", authorize(["events.view"]), eventController.getAllEvents)
+
+router.get("/:id", authorize(["events.view"]), eventController.getEventById)
+
+router.post("/", authorize(["events.create"]), validateEventRequest, eventController.createEvent)
+
+router.put("/:id", authorize(["events.update"]), validateEventRequest, eventController.updateEvent)
+
+router.delete("/:id", authorize(["events.delete"]), eventController.deleteEvent)
+
+// Calendar view routes
+router.get("/calendar/view", authorize(["events.view"]), eventController.getCalendarView)
+
+router.get("/calendar/availability", authorize(["events.view"]), eventController.checkAvailability)
 
 export default router

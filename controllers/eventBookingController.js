@@ -7,6 +7,9 @@ import { ApiResponse } from "../utils/apiResponse.js"
 import asyncHandler from "../utils/asyncHandler.js"
 import mongoose from "mongoose"
 import Event from "../models/Event.js"
+// Guest model is used for customers
+const Guest = mongoose.model("Guest")
+import { successResponse, errorResponse } from "../utils/responseHandler.js"
 
 /**
  * @desc    Create a new event booking
@@ -55,7 +58,6 @@ export const createEventBooking = asyncHandler(async (req, res) => {
   }
 
   // Check if customer exists
-  const Guest = mongoose.model("Guest")
   const customerExists = await Guest.findById(customer)
   if (!customerExists) {
     throw new ApiError("Customer not found", 404)
@@ -464,15 +466,12 @@ export const deleteEventBooking = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, null, "Event booking deleted successfully"))
 })
 
-const Customer = require("../models/Customer")
-const { successResponse, errorResponse } = require("../utils/responseHandler")
-
 /**
  * Get all event bookings
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.getAllEventBookings = async (req, res) => {
+export const getAllEventBookings = async (req, res) => {
   try {
     const { status, venue, eventType, customer, startDate, endDate, hotel, sortBy, limit = 20, page = 1 } = req.query
 
@@ -542,7 +541,7 @@ exports.getAllEventBookings = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.getEventBookingById = async (req, res) => {
+export const getEventBookingById = async (req, res) => {
   try {
     const booking = await EventBooking.findById(req.params.id)
       .populate("venue")
@@ -565,7 +564,7 @@ exports.getEventBookingById = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.createEventBooking = async (req, res) => {
+export const createEventBooking2 = async (req, res) => {
   // Start a session for transaction
   const session = await mongoose.startSession()
   session.startTransaction()
@@ -607,8 +606,8 @@ exports.createEventBooking = async (req, res) => {
     }
 
     // Check if customer exists
-    const customer = await Customer.findById(customerId).session(session)
-    if (!customer) {
+    const customerExists = await Guest.findById(customerId).session(session)
+    if (!customerExists) {
       await session.abortTransaction()
       session.endSession()
       return errorResponse(res, "Customer not found", 404)
@@ -731,7 +730,7 @@ exports.createEventBooking = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.updateEventBooking = async (req, res) => {
+export const updateEventBooking2 = async (req, res) => {
   // Start a session for transaction
   const session = await mongoose.startSession()
   session.startTransaction()
@@ -902,7 +901,7 @@ exports.updateEventBooking = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.deleteEventBooking = async (req, res) => {
+export const deleteEventBooking2 = async (req, res) => {
   try {
     const { id } = req.params
 
@@ -931,7 +930,7 @@ exports.deleteEventBooking = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.confirmEventBooking = async (req, res) => {
+export const confirmEventBooking = async (req, res) => {
   try {
     const { id } = req.params
 
@@ -970,7 +969,7 @@ exports.confirmEventBooking = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.cancelEventBooking = async (req, res) => {
+export const cancelEventBooking2 = async (req, res) => {
   try {
     const { id } = req.params
     const { cancellationReason } = req.body
@@ -1011,7 +1010,7 @@ exports.cancelEventBooking = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.getBookingsByDateRange = async (req, res) => {
+export const getBookingsByDateRange = async (req, res) => {
   try {
     const { startDate, endDate, hotel } = req.query
 
@@ -1061,7 +1060,7 @@ exports.getBookingsByDateRange = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.getBookingsByVenue = async (req, res) => {
+export const getBookingsByVenue = async (req, res) => {
   try {
     const { venueId } = req.params
     const { status, startDate, endDate } = req.query
@@ -1108,7 +1107,7 @@ exports.getBookingsByVenue = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.getBookingsByCustomer = async (req, res) => {
+export const getBookingsByCustomer = async (req, res) => {
   try {
     const { customerId } = req.params
     const { status } = req.query
@@ -1132,7 +1131,7 @@ exports.getBookingsByCustomer = async (req, res) => {
   }
 }
 // Get all bookings
-exports.getAllBookings = asyncHandler(async (req, res) => {
+export const getAllBookings = asyncHandler(async (req, res) => {
   const {
     hotel_id,
     venue_id,
@@ -1201,7 +1200,7 @@ exports.getAllBookings = asyncHandler(async (req, res) => {
 })
 
 // Get booking by ID
-exports.getBookingById = asyncHandler(async (req, res) => {
+export const getBookingById = asyncHandler(async (req, res) => {
   const { id } = req.params
 
   const booking = await EventBooking.findOne({ _id: id, is_deleted: false })
@@ -1223,7 +1222,7 @@ exports.getBookingById = asyncHandler(async (req, res) => {
 })
 
 // Create booking
-exports.createBooking = asyncHandler(async (req, res) => {
+export const createBooking = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession()
   session.startTransaction()
 
@@ -1323,7 +1322,7 @@ exports.createBooking = asyncHandler(async (req, res) => {
 })
 
 // Update booking
-exports.updateBooking = asyncHandler(async (req, res) => {
+export const updateBooking = asyncHandler(async (req, res) => {
   const { id } = req.params
   const updateData = req.body
 
@@ -1365,7 +1364,7 @@ exports.updateBooking = asyncHandler(async (req, res) => {
 })
 
 // Delete booking
-exports.deleteBooking = asyncHandler(async (req, res) => {
+export const deleteBooking = asyncHandler(async (req, res) => {
   const { id } = req.params
 
   // Soft delete
@@ -1389,7 +1388,7 @@ exports.deleteBooking = asyncHandler(async (req, res) => {
 })
 
 // Update booking status
-exports.updateBookingStatus = asyncHandler(async (req, res) => {
+export const updateBookingStatus = asyncHandler(async (req, res) => {
   const { id } = req.params
   const { status, notes } = req.body
 
@@ -1428,7 +1427,7 @@ exports.updateBookingStatus = asyncHandler(async (req, res) => {
 })
 
 // Add booking payment
-exports.addBookingPayment = asyncHandler(async (req, res) => {
+export const addBookingPayment = asyncHandler(async (req, res) => {
   const { id } = req.params
   const { amount, method, reference, notes } = req.body
 
@@ -1482,7 +1481,7 @@ exports.addBookingPayment = asyncHandler(async (req, res) => {
 })
 
 // Confirm booking
-exports.confirmBooking = asyncHandler(async (req, res) => {
+export const confirmBooking = asyncHandler(async (req, res) => {
   const { id } = req.params
   const { contract_signed, signed_by, terms_accepted } = req.body
 
@@ -1525,7 +1524,7 @@ exports.confirmBooking = asyncHandler(async (req, res) => {
 })
 
 // Cancel booking
-exports.cancelBooking = asyncHandler(async (req, res) => {
+export const cancelBooking = asyncHandler(async (req, res) => {
   const { id } = req.params
   const { reason, refund_amount } = req.body
 

@@ -1,54 +1,34 @@
-const express = require("express")
+import express from "express"
+import { authenticate, authorize } from "../middleware/auth.js"
+import {
+  getAllEventServices,
+  getEventServiceById,
+  createEventService,
+  updateEventService,
+  deleteEventService,
+  getServicesByCategory,
+  addServiceToBooking,
+  removeServiceFromBooking,
+} from "../controllers/eventServiceController.js"
+import { validateServiceRequest } from "../middleware/validationMiddleware.js"
+
 const router = express.Router()
-const eventServiceController = require("../controllers/eventServiceController")
-const { authenticate } = require("../middleware/authMiddleware")
-const { authorize } = require("../middleware/roleMiddleware")
-const { validateEventService } = require("../middleware/validationMiddleware")
 
-// Get all event services
-router.get("/", authenticate, eventServiceController.getAllEventServices)
+// Apply authentication to all service routes
+router.use(authenticate)
 
-// Get event service by ID
-router.get("/:id", authenticate, eventServiceController.getEventServiceById)
-
-// Create new event service
-router.post(
-  "/",
-  authenticate,
-  authorize(["admin", "manager", "events_manager"]),
-  validateEventService,
-  eventServiceController.createEventService,
-)
-
-// Update event service
-router.put(
-  "/:id",
-  authenticate,
-  authorize(["admin", "manager", "events_manager"]),
-  validateEventService,
-  eventServiceController.updateEventService,
-)
-
-// Delete event service
-router.delete("/:id", authenticate, authorize(["admin", "manager"]), eventServiceController.deleteEventService)
+// Service management routes
+router.get("/", authorize(["services.view"]), getAllEventServices)
+router.get("/:id", authorize(["services.view"]), getEventServiceById)
+router.post("/", authorize(["services.create"]), validateServiceRequest, createEventService)
+router.put("/:id", authorize(["services.update"]), validateServiceRequest, updateEventService)
+router.delete("/:id", authorize(["services.delete"]), deleteEventService)
 
 // Get services by category
-router.get("/category/:category", authenticate, eventServiceController.getServicesByCategory)
+router.get("/category/:category", authorize(["services.view"]), getServicesByCategory)
 
-// Add service to event booking
-router.post(
-  "/booking/:bookingId",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventServiceController.addServiceToBooking,
-)
+// Routes for managing services in bookings
+router.post("/bookings/:bookingId/services", authorize(["bookings.update", "services.create"]), addServiceToBooking)
+router.delete("/bookings/:bookingId/services/:serviceId", authorize(["bookings.update"]), removeServiceFromBooking)
 
-// Remove service from event booking
-router.delete(
-  "/booking/:bookingId/service/:serviceId",
-  authenticate,
-  authorize(["admin", "manager", "events_manager", "receptionist"]),
-  eventServiceController.removeServiceFromBooking,
-)
-
-module.exports = router
+export default router

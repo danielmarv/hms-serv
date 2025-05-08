@@ -1,32 +1,22 @@
 import express from "express"
+import { authenticate, authorize } from "../middleware/auth.js"
 import * as eventTypeController from "../controllers/eventTypeController.js"
-import { authenticate } from "../middleware/auth.js"
-
+import { validateEventTypeRequest } from "../middleware/validationMiddleware.js"
 
 const router = express.Router()
 
-// Apply authentication to all routes
+// Apply authentication to all event type routes
 router.use(authenticate)
 
-// Get all event types
-router.get("/", eventTypeController.getAllEventTypes)
+// Event type management routes
+router.get("/", authorize(["event_types.view"]), eventTypeController.getAllEventTypes)
 
-// Get event type by ID
-router.get("/:id", eventTypeController.getEventTypeById)
+router.get("/:id", authorize(["event_types.view"]), eventTypeController.getEventTypeById)
 
-// Create new event type
-router.post(
-  "/",
-  eventTypeController.createEventType,
-)
+router.post("/", authorize(["event_types.create"]), validateEventTypeRequest, eventTypeController.createEventType)
 
-// Update event type
-router.put(
-  "/:id",
-  eventTypeController.updateEventType,
-)
+router.put("/:id", authorize(["event_types.update"]), validateEventTypeRequest, eventTypeController.updateEventType)
 
-// Delete event type
-router.delete("/:id", eventTypeController.deleteEventType)
+router.delete("/:id", authorize(["event_types.delete"]), eventTypeController.deleteEventType)
 
 export default router

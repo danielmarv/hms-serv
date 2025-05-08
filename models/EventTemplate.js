@@ -6,17 +6,10 @@ const eventTemplateSchema = new mongoose.Schema(
       type: String,
       required: [true, "Template name is required"],
       trim: true,
-      maxlength: [100, "Template name cannot exceed 100 characters"],
     },
     description: {
       type: String,
       trim: true,
-      maxlength: [500, "Description cannot exceed 500 characters"],
-    },
-    hotel: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
-      required: [true, "Hotel is required"],
     },
     eventType: {
       type: mongoose.Schema.Types.ObjectId,
@@ -26,85 +19,73 @@ const eventTemplateSchema = new mongoose.Schema(
     venue: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "EventVenue",
+      required: [true, "Venue is required"],
     },
     duration: {
-      type: Number, // in hours
-      default: 4,
+      type: Number, // in minutes
+      required: [true, "Duration is required"],
+      min: [1, "Duration must be at least 1 minute"],
     },
-    setupTime: {
-      type: Number, // in hours
-      default: 1,
+    capacity: {
+      type: Number,
+      min: [1, "Capacity must be at least 1 person"],
     },
-    teardownTime: {
-      type: Number, // in hours
-      default: 1,
+    basePrice: {
+      type: Number,
+      required: [true, "Base price is required"],
+      min: [0, "Base price cannot be negative"],
     },
     services: [
       {
-        service: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "EventService",
-          required: true,
-        },
-        quantity: {
-          type: Number,
-          default: 1,
-          min: [1, "Quantity must be at least 1"],
-        },
-        notes: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "EventService",
       },
     ],
-    guestCapacity: {
-      type: Number,
-      min: [1, "Guest capacity must be at least 1"],
+    staffing: [
+      {
+        role: {
+          type: String,
+          required: [true, "Staff role is required"],
+        },
+        count: {
+          type: Number,
+          required: [true, "Staff count is required"],
+          min: [1, "At least one staff member is required"],
+        },
+      },
+    ],
+    setupTime: {
+      type: Number, // in minutes
+      default: 30,
+      min: [0, "Setup time cannot be negative"],
     },
-    defaultPrice: {
-      type: Number,
-      min: [0, "Price cannot be negative"],
+    teardownTime: {
+      type: Number, // in minutes
+      default: 30,
+      min: [0, "Teardown time cannot be negative"],
+    },
+    includedItems: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    terms: {
+      type: String,
+      trim: true,
     },
     isActive: {
       type: Boolean,
       default: true,
     },
-    settings: {
-      requiresDeposit: {
-        type: Boolean,
-        default: false,
-      },
-      depositPercentage: {
-        type: Number,
-        min: [0, "Deposit percentage cannot be negative"],
-        max: [100, "Deposit percentage cannot exceed 100"],
-      },
-      cancellationPolicy: {
-        type: String,
-        enum: ["flexible", "moderate", "strict"],
-        default: "moderate",
-      },
-      customFields: [
-        {
-          name: String,
-          type: {
-            type: String,
-            enum: ["text", "number", "date", "boolean", "select"],
-            default: "text",
-          },
-          required: Boolean,
-          options: [String], // For select type
-        },
-      ],
-    },
-    createdFrom: {
-      event: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "EventBooking",
-      },
-      name: String,
+    hotelId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hotel",
+      required: [true, "Hotel ID is required"],
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -116,9 +97,9 @@ const eventTemplateSchema = new mongoose.Schema(
   },
 )
 
-// Add indexes
-eventTemplateSchema.index({ hotel: 1, name: 1 }, { unique: true })
-eventTemplateSchema.index({ hotel: 1, eventType: 1 })
+// Add indexes for common queries
+eventTemplateSchema.index({ hotelId: 1, name: 1 })
+eventTemplateSchema.index({ eventType: 1 })
 eventTemplateSchema.index({ isActive: 1 })
 
 const EventTemplate = mongoose.model("EventTemplate", eventTemplateSchema)

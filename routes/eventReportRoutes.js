@@ -1,26 +1,23 @@
 import express from "express"
+import { authenticate, authorize } from "../middleware/auth.js"
 import * as eventReportController from "../controllers/eventReportController.js"
-import { authenticate } from "../middleware/auth.js"
-import { checkPermission } from "../middleware/permissionMiddleware.js"
 
 const router = express.Router()
 
-// Apply authentication to all routes
+// Apply authentication to all report routes
 router.use(authenticate)
 
-// Get revenue report
-router.get("/revenue", checkPermission("events:reports"), eventReportController.getRevenueReport)
+// Report routes
+router.get("/revenue", authorize(["reports.view"]), eventReportController.getRevenueReport)
 
-// Get event type performance report
-router.get("/event-type-performance", checkPermission("events:reports"), eventReportController.getEventTypePerformance)
+router.get("/event-types", authorize(["reports.view"]), eventReportController.getEventTypeReport)
 
-// Get venue utilization report
-router.get("/venue-utilization", checkPermission("events:reports"), eventReportController.getVenueUtilization)
+router.get("/venues", authorize(["reports.view"]), eventReportController.getVenueUtilizationReport)
 
-// Get service popularity report
-router.get("/service-popularity", checkPermission("events:reports"), eventReportController.getServicePopularity)
+router.get("/services", authorize(["reports.view"]), eventReportController.getServicePopularityReport)
 
-// Get customer satisfaction report
-router.get("/customer-satisfaction", checkPermission("events:reports"), eventReportController.getCustomerSatisfaction)
+router.get("/feedback", authorize(["reports.view"]), eventReportController.getFeedbackReport)
+
+router.get("/custom", authorize(["reports.view"]), eventReportController.generateCustomReport)
 
 export default router

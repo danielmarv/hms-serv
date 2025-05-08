@@ -1,23 +1,25 @@
 import express from "express"
+import { authenticate, authorize } from "../middleware/auth.js"
 import * as eventCalendarController from "../controllers/eventCalendarController.js"
-import { authenticate } from "../middleware/auth.js"
-import { checkPermission } from "../middleware/permissionMiddleware.js"
 
 const router = express.Router()
 
-// Apply authentication to all routes
+// Apply authentication to all calendar routes
 router.use(authenticate)
 
-// Get calendar events
-router.get("/events", checkPermission("events:view"), eventCalendarController.getCalendarEvents)
+// Calendar view routes
+router.get("/", authorize(["calendar.view"]), eventCalendarController.getCalendarEvents)
 
-// Get venue availability
-router.get("/venue-availability", checkPermission("events:view"), eventCalendarController.getVenueAvailability)
+router.get("/month/:year/:month", authorize(["calendar.view"]), eventCalendarController.getMonthEvents)
 
-// Get daily schedule
-router.get("/daily-schedule", checkPermission("events:view"), eventCalendarController.getDailySchedule)
+router.get("/week/:year/:week", authorize(["calendar.view"]), eventCalendarController.getWeekEvents)
 
-// Get monthly overview
-router.get("/monthly-overview", checkPermission("events:view"), eventCalendarController.getMonthlyOverview)
+router.get("/day/:year/:month/:day", authorize(["calendar.view"]), eventCalendarController.getDayEvents)
+
+// Availability check routes
+router.post("/check-availability", authorize(["calendar.view"]), eventCalendarController.checkAvailability)
+
+// Venue calendar routes
+router.get("/venue/:venueId", authorize(["calendar.view"]), eventCalendarController.getVenueCalendar)
 
 export default router
