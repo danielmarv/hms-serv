@@ -28,7 +28,6 @@ router.get(
   getPaymentById,
 )
 
-// Create new payment
 router.post("/", authorize(["admin", "manager", "accountant", "receptionist"]), createPayment)
 
 // Update payment
