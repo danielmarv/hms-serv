@@ -19,7 +19,6 @@ router.use(authenticate)
 
 router.get("/", authorize(["admin", "manager", "accountant", "receptionist"]), getAllPayments)
 
-// Get payment statistics
 router.get("/stats", authorize(["admin", "manager", "accountant"]), getPaymentStats)
 
 // Get payment by ID
