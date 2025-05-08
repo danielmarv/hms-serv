@@ -43,7 +43,6 @@ router.patch(
   issueReceipt,
 )
 
-// Send receipt by email
 router.post(
   "/:id/email",
   validateObjectId("id"),
