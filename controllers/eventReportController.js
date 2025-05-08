@@ -169,7 +169,6 @@ export const getRevenueReport = async (req, res) => {
       })
     }
 
-    // Calculate totals
     const totalEvents = formattedData.reduce((sum, item) => sum + item.count, 0)
     const totalRevenue = formattedData.reduce((sum, item) => sum + item.revenue, 0)
 
