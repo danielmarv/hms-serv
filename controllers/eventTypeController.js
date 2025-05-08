@@ -1,14 +1,13 @@
-const EventType = require("../models/EventType")
-const EventBooking = require("../models/EventBooking")
-const { successResponse, errorResponse } = require("../utils/responseHandler")
-const mongoose = require("mongoose")
+import EventType from "../models/EventType.js"
+import EventBooking from "../models/EventBooking.js"
+import { successResponse, errorResponse } from "../utils/responseHandler.js"
 
 /**
  * Get all event types
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.getAllEventTypes = async (req, res) => {
+export const getAllEventTypes = async (req, res) => {
   try {
     const { isActive, hotel, sortBy, limit = 20, page = 1 } = req.query
     const skip = (page - 1) * limit
@@ -50,7 +49,7 @@ exports.getAllEventTypes = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.getEventTypeById = async (req, res) => {
+export const getEventTypeById = async (req, res) => {
   try {
     const eventType = await EventType.findById(req.params.id)
 
@@ -69,7 +68,7 @@ exports.getEventTypeById = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.createEventType = async (req, res) => {
+export const createEventType = async (req, res) => {
   try {
     // Add user ID to created by field
     req.body.createdBy = req.user._id
@@ -88,7 +87,7 @@ exports.createEventType = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.updateEventType = async (req, res) => {
+export const updateEventType = async (req, res) => {
   try {
     // Add user ID to updated by field
     req.body.updatedBy = req.user._id
@@ -114,7 +113,7 @@ exports.updateEventType = async (req, res) => {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-exports.deleteEventType = async (req, res) => {
+export const deleteEventType = async (req, res) => {
   try {
     // Check if event type is used in any bookings
     const bookings = await EventBooking.find({
