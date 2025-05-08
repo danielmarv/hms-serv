@@ -514,7 +514,6 @@ export const getServicePopularityReport = async (req, res) => {
       start_date: { $gte: startDateTime, $lte: endDateTime },
     })
 
-    // Format response
     const formattedData = serviceStats.map((stat) => ({
       service_id: stat.service_id,
       service_name: stat.service_name || "Unknown Service",
@@ -526,7 +525,6 @@ export const getServicePopularityReport = async (req, res) => {
       avg_revenue_per_booking: stat.booking_count > 0 ? (stat.total_revenue / stat.booking_count).toFixed(2) : 0,
     }))
 
-    // Calculate totals
     const totalServiceRevenue = formattedData.reduce((sum, service) => sum + service.total_revenue, 0)
     const totalServiceQuantity = formattedData.reduce((sum, service) => sum + service.total_quantity, 0)
 
@@ -573,7 +571,6 @@ export const getFeedbackReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 12 months if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date
       ? new Date(start_date)
