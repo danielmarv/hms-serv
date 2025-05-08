@@ -415,7 +415,6 @@ export const getVenueUtilizationReport = async (req, res) => {
 
     venueData.sort((a, b) => b.utilization_rate - a.utilization_rate)
 
-    // Calculate totals
     const totalAvailableHours = venueData.reduce((sum, venue) => sum + venue.total_available_hours, 0)
     const totalBookedHours = venueData.reduce((sum, venue) => sum + venue.booked_hours, 0)
     const totalUtilizationRate =
@@ -465,7 +464,6 @@ export const getServicePopularityReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 90 days if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date ? new Date(start_date) : new Date(endDateTime.getTime() - 90 * 24 * 60 * 60 * 1000)
 
