@@ -17,7 +17,6 @@ const router = express.Router()
 
 router.use(authenticate)
 
-// Get all payments
 router.get("/", authorize(["admin", "manager", "accountant", "receptionist"]), getAllPayments)
 
 // Get payment statistics
