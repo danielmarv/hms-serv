@@ -322,7 +322,6 @@ export const getVenueUtilizationReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 30 days if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date ? new Date(start_date) : new Date(endDateTime.getTime() - 30 * 24 * 60 * 60 * 1000)
 
