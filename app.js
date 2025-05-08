@@ -26,6 +26,7 @@ import dataSyncRoutes from "./routes/dataSyncRoutes.js"
 import hotelChainRoutes from "./routes/hotelChainRoutes.js"
 import hotelRoutes from "./routes/hotelRoutes.js"
 import kitchenRoutes from "./routes/kitchenRoutes.js"
+import eventRoutes from "./routes/eventRoutes.js"
 
 import errorHandler from "./middleware/errorHandler.js"
 import { apiLimiter } from "./middleware/rateLimiter.js"
@@ -63,6 +64,7 @@ app.use("/api/cross-hotel", crossHotelRoutes)
 app.use("/api/data-sync", dataSyncRoutes)
 app.use("/api/chains", hotelChainRoutes)
 app.use("/api/kitchen", kitchenRoutes)
+app.use("/api/events", eventRoutes)
 
 // Hotel management
 app.use("/api/hotels", hotelRoutes)
@@ -78,6 +80,7 @@ app.use("/api/inventory", inventoryRoutes)
 app.use("/api/suppliers", supplierRoutes)
 
 app.use("/api/restaurant", restaurantRoutes)
+
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
