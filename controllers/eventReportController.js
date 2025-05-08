@@ -600,7 +600,6 @@ export const getFeedbackReport = async (req, res) => {
     const overallRating =
       totalFeedback > 0 ? (feedback.reduce((sum, item) => sum + item.rating, 0) / totalFeedback).toFixed(2) : 0
 
-    // Calculate category ratings
     const categoryRatings = {
       venue: { total: 0, count: 0 },
       staff: { total: 0, count: 0 },
@@ -639,7 +638,6 @@ export const getFeedbackReport = async (req, res) => {
         categoryRatings.value.count > 0 ? (categoryRatings.value.total / categoryRatings.value.count).toFixed(2) : 0,
     }
 
-    // Group feedback by rating
     const ratingDistribution = [0, 0, 0, 0, 0] // Index 0 = rating 1, index 4 = rating 5
     feedback.forEach((item) => {
       if (item.rating >= 1 && item.rating <= 5) {
