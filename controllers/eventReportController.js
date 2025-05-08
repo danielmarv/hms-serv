@@ -645,12 +645,10 @@ export const getFeedbackReport = async (req, res) => {
       }
     })
 
-    // Calculate rating percentages
     const ratingPercentages = ratingDistribution.map((count) =>
       totalFeedback > 0 ? ((count / totalFeedback) * 100).toFixed(2) + "%" : "0%",
     )
 
-    // Group feedback by venue
     const venueRatings = {}
     feedback.forEach((item) => {
       if (item.booking && item.booking.venue_id) {
@@ -672,7 +670,6 @@ export const getFeedbackReport = async (req, res) => {
       }
     })
 
-    // Calculate average ratings for venues
     const venueRatingsList = Object.values(venueRatings).map((venue) => ({
       id: venue.id,
       name: venue.name,
