@@ -120,7 +120,7 @@ export const getRevenueReport = async (req, res) => {
     let formattedData = []
 
     if (group_by === "event_type" || group_by === "venue") {
-      // Populate event type or venue names
+
       const ids = revenueData.map((item) => item._id)
 
       let lookupData = []
