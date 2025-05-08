@@ -26,7 +26,6 @@ export const getRevenueReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Build match stage
     const matchStage = {
       hotel_id: mongoose.Types.ObjectId(hotel_id),
       is_deleted: false,
