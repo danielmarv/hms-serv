@@ -377,7 +377,6 @@ export const getVenueUtilizationReport = async (req, res) => {
       ],
     }
 
-    // Group by venue
     const pipeline = [
       { $match: matchStage },
       {
@@ -389,7 +388,7 @@ export const getVenueUtilizationReport = async (req, res) => {
             $sum: {
               $divide: [
                 { $subtract: ["$end_date", "$start_date"] },
-                1000 * 60 * 60, // Convert to hours
+                1000 * 60 * 60,
               ],
             },
           },
