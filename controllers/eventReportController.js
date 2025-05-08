@@ -146,7 +146,6 @@ export const getRevenueReport = async (req, res) => {
         }
       })
     } else {
-      // Format date-based groups
       formattedData = revenueData.map((item) => {
         let label = ""
 
