@@ -329,7 +329,6 @@ export const getVenueUtilizationReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Get all venues for the hotel
     const venues = await EventVenue.find({
       hotel_id,
       is_deleted: false,
