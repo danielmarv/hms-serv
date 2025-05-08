@@ -372,7 +372,6 @@ export const getVenueUtilizationReport = async (req, res) => {
       $or: [
 
         { start_date: { $gte: startDateTime, $lte: endDateTime } },
-        // Booking ends during the range
         { end_date: { $gte: startDateTime, $lte: endDateTime } },
         // Booking spans the entire range
         { start_date: { $lte: startDateTime }, end_date: { $gte: endDateTime } },
