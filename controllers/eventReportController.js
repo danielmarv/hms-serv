@@ -257,7 +257,6 @@ export const getEventTypeReport = async (req, res) => {
 
     const eventTypeStats = await EventBooking.aggregate(pipeline)
 
-    // Format response
     const formattedData = eventTypeStats.map((stat) => {
       const eventType = eventTypes.find((et) => et._id.toString() === stat._id.toString())
 
