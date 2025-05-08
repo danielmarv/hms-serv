@@ -36,7 +36,6 @@ router.delete("/:id", validateObjectId("id"), authorize(["admin", "manager", "ac
 
 router.patch("/:id/refund", validateObjectId("id"), authorize(["admin", "manager", "accountant"]), processRefund)
 
-// Issue receipt
 router.patch(
   "/:id/receipt",
   validateObjectId("id"),
