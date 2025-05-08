@@ -17,7 +17,6 @@ export const getRevenueReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 12 months if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date
       ? new Date(start_date)
@@ -27,7 +26,6 @@ export const getRevenueReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Build match stage
     const matchStage = {
       hotel_id: mongoose.Types.ObjectId(hotel_id),
       is_deleted: false,
@@ -35,7 +33,6 @@ export const getRevenueReport = async (req, res) => {
       start_date: { $gte: startDateTime, $lte: endDateTime },
     }
 
-    // Build group stage based on group_by parameter
     let groupStage = {}
     let sortStage = {}
 
@@ -116,16 +113,14 @@ export const getRevenueReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid group_by parameter"))
     }
 
-    // Execute aggregation
     const pipeline = [{ $match: matchStage }, { $group: groupStage }, { $sort: sortStage }]
 
     const revenueData = await EventBooking.aggregate(pipeline)
 
-    // Format response based on group_by
     let formattedData = []
 
     if (group_by === "event_type" || group_by === "venue") {
-      // Populate event type or venue names
+
       const ids = revenueData.map((item) => item._id)
 
       let lookupData = []
@@ -151,7 +146,6 @@ export const getRevenueReport = async (req, res) => {
         }
       })
     } else {
-      // Format date-based groups
       formattedData = revenueData.map((item) => {
         let label = ""
 
@@ -175,7 +169,6 @@ export const getRevenueReport = async (req, res) => {
       })
     }
 
-    // Calculate totals
     const totalEvents = formattedData.reduce((sum, item) => sum + item.count, 0)
     const totalRevenue = formattedData.reduce((sum, item) => sum + item.revenue, 0)
 
@@ -215,7 +208,6 @@ export const getEventTypeReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 12 months if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date
       ? new Date(start_date)
@@ -225,20 +217,17 @@ export const getEventTypeReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Get all event types for the hotel
     const eventTypes = await EventType.find({
       hotel_id,
       is_deleted: false,
     }).lean()
 
-    // Build match stage
     const matchStage = {
       hotel_id: mongoose.Types.ObjectId(hotel_id),
       is_deleted: false,
       start_date: { $gte: startDateTime, $lte: endDateTime },
     }
 
-    // Group by event type
     const pipeline = [
       { $match: matchStage },
       {
@@ -268,7 +257,6 @@ export const getEventTypeReport = async (req, res) => {
 
     const eventTypeStats = await EventBooking.aggregate(pipeline)
 
-    // Format response
     const formattedData = eventTypeStats.map((stat) => {
       const eventType = eventTypes.find((et) => et._id.toString() === stat._id.toString())
 
@@ -288,7 +276,6 @@ export const getEventTypeReport = async (req, res) => {
       }
     })
 
-    // Calculate totals
     const totalEvents = formattedData.reduce((sum, item) => sum + item.total_events, 0)
     const totalConfirmed = formattedData.reduce((sum, item) => sum + item.confirmed_events, 0)
     const totalCancelled = formattedData.reduce((sum, item) => sum + item.cancelled_events, 0)
@@ -335,7 +322,6 @@ export const getVenueUtilizationReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 30 days if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date ? new Date(start_date) : new Date(endDateTime.getTime() - 30 * 24 * 60 * 60 * 1000)
 
@@ -343,30 +329,25 @@ export const getVenueUtilizationReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Get all venues for the hotel
     const venues = await EventVenue.find({
       hotel_id,
       is_deleted: false,
     }).lean()
 
-    // Calculate total available hours for each venue
     const venueData = venues.map((venue) => {
-      // Calculate business hours per day
+
       const startHour = Number.parseInt(venue.availability.start_time.split(":")[0])
       const endHour = Number.parseInt(venue.availability.end_time.split(":")[0])
       const hoursPerDay = endHour - startHour
 
-      // Calculate total days in the date range
       const totalDays = Math.ceil((endDateTime - startDateTime) / (1000 * 60 * 60 * 24))
 
-      // Calculate available days based on days_of_week
       const availableDays = Array.from({ length: totalDays }, (_, i) => {
         const date = new Date(startDateTime)
         date.setDate(date.getDate() + i)
         return venue.availability.days_of_week.includes(date.getDay()) ? 1 : 0
       }).reduce((sum, val) => sum + val, 0)
 
-      // Calculate total available hours
       const totalAvailableHours = availableDays * hoursPerDay
 
       return {
@@ -384,22 +365,18 @@ export const getVenueUtilizationReport = async (req, res) => {
       }
     })
 
-    // Build match stage for bookings
     const matchStage = {
       hotel_id: mongoose.Types.ObjectId(hotel_id),
       is_deleted: false,
       status: { $in: ["confirmed", "completed"] },
       $or: [
-        // Booking starts during the range
+
         { start_date: { $gte: startDateTime, $lte: endDateTime } },
-        // Booking ends during the range
         { end_date: { $gte: startDateTime, $lte: endDateTime } },
-        // Booking spans the entire range
         { start_date: { $lte: startDateTime }, end_date: { $gte: endDateTime } },
       ],
     }
 
-    // Group by venue
     const pipeline = [
       { $match: matchStage },
       {
@@ -411,7 +388,7 @@ export const getVenueUtilizationReport = async (req, res) => {
             $sum: {
               $divide: [
                 { $subtract: ["$end_date", "$start_date"] },
-                1000 * 60 * 60, // Convert to hours
+                1000 * 60 * 60,
               ],
             },
           },
@@ -421,7 +398,6 @@ export const getVenueUtilizationReport = async (req, res) => {
 
     const venueStats = await EventBooking.aggregate(pipeline)
 
-    // Update venue data with booking statistics
     venueStats.forEach((stat) => {
       const venueIndex = venueData.findIndex((v) => v.id.toString() === stat._id.toString())
       if (venueIndex !== -1) {
@@ -437,10 +413,8 @@ export const getVenueUtilizationReport = async (req, res) => {
       }
     })
 
-    // Sort by utilization rate
     venueData.sort((a, b) => b.utilization_rate - a.utilization_rate)
 
-    // Calculate totals
     const totalAvailableHours = venueData.reduce((sum, venue) => sum + venue.total_available_hours, 0)
     const totalBookedHours = venueData.reduce((sum, venue) => sum + venue.booked_hours, 0)
     const totalUtilizationRate =
@@ -490,7 +464,6 @@ export const getServicePopularityReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 90 days if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date ? new Date(start_date) : new Date(endDateTime.getTime() - 90 * 24 * 60 * 60 * 1000)
 
@@ -498,16 +471,14 @@ export const getServicePopularityReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Build match stage for bookings
     const matchStage = {
       hotel_id: mongoose.Types.ObjectId(hotel_id),
       is_deleted: false,
       status: { $in: ["confirmed", "completed"] },
       start_date: { $gte: startDateTime, $lte: endDateTime },
-      "services.0": { $exists: true }, // Only bookings with services
+      "services.0": { $exists: true },
     }
 
-    // Unwind services array and group by service
     const pipeline = [
       { $match: matchStage },
       { $unwind: "$services" },
@@ -536,7 +507,6 @@ export const getServicePopularityReport = async (req, res) => {
 
     const serviceStats = await EventBooking.aggregate(pipeline)
 
-    // Get total bookings in the period for percentage calculation
     const totalBookings = await EventBooking.countDocuments({
       hotel_id,
       is_deleted: false,
@@ -544,7 +514,6 @@ export const getServicePopularityReport = async (req, res) => {
       start_date: { $gte: startDateTime, $lte: endDateTime },
     })
 
-    // Format response
     const formattedData = serviceStats.map((stat) => ({
       service_id: stat.service_id,
       service_name: stat.service_name || "Unknown Service",
@@ -556,7 +525,6 @@ export const getServicePopularityReport = async (req, res) => {
       avg_revenue_per_booking: stat.booking_count > 0 ? (stat.total_revenue / stat.booking_count).toFixed(2) : 0,
     }))
 
-    // Calculate totals
     const totalServiceRevenue = formattedData.reduce((sum, service) => sum + service.total_revenue, 0)
     const totalServiceQuantity = formattedData.reduce((sum, service) => sum + service.total_quantity, 0)
 
@@ -603,7 +571,6 @@ export const getFeedbackReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 12 months if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date
       ? new Date(start_date)
@@ -613,7 +580,6 @@ export const getFeedbackReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Get all feedback for the hotel in the date range
     const EventFeedback = mongoose.model("EventFeedback")
 
     const feedback = await EventFeedback.find({
@@ -630,12 +596,10 @@ export const getFeedbackReport = async (req, res) => {
       })
       .lean()
 
-    // Calculate overall ratings
     const totalFeedback = feedback.length
     const overallRating =
       totalFeedback > 0 ? (feedback.reduce((sum, item) => sum + item.rating, 0) / totalFeedback).toFixed(2) : 0
 
-    // Calculate category ratings
     const categoryRatings = {
       venue: { total: 0, count: 0 },
       staff: { total: 0, count: 0 },
@@ -674,7 +638,6 @@ export const getFeedbackReport = async (req, res) => {
         categoryRatings.value.count > 0 ? (categoryRatings.value.total / categoryRatings.value.count).toFixed(2) : 0,
     }
 
-    // Group feedback by rating
     const ratingDistribution = [0, 0, 0, 0, 0] // Index 0 = rating 1, index 4 = rating 5
     feedback.forEach((item) => {
       if (item.rating >= 1 && item.rating <= 5) {
@@ -682,12 +645,10 @@ export const getFeedbackReport = async (req, res) => {
       }
     })
 
-    // Calculate rating percentages
     const ratingPercentages = ratingDistribution.map((count) =>
       totalFeedback > 0 ? ((count / totalFeedback) * 100).toFixed(2) + "%" : "0%",
     )
 
-    // Group feedback by venue
     const venueRatings = {}
     feedback.forEach((item) => {
       if (item.booking && item.booking.venue_id) {
@@ -709,7 +670,6 @@ export const getFeedbackReport = async (req, res) => {
       }
     })
 
-    // Calculate average ratings for venues
     const venueRatingsList = Object.values(venueRatings).map((venue) => ({
       id: venue.id,
       name: venue.name,
@@ -717,10 +677,8 @@ export const getFeedbackReport = async (req, res) => {
       rating: venue.count > 0 ? (venue.total / venue.count).toFixed(2) : 0,
     }))
 
-    // Sort venues by rating
     venueRatingsList.sort((a, b) => b.rating - a.rating)
 
-    // Group feedback by event type
     const eventTypeRatings = {}
     feedback.forEach((item) => {
       if (item.booking && item.booking.event_id && item.booking.event_id.event_type_id) {
