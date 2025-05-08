@@ -340,17 +340,14 @@ export const getVenueUtilizationReport = async (req, res) => {
       const endHour = Number.parseInt(venue.availability.end_time.split(":")[0])
       const hoursPerDay = endHour - startHour
 
-      // Calculate total days in the date range
       const totalDays = Math.ceil((endDateTime - startDateTime) / (1000 * 60 * 60 * 24))
 
-      // Calculate available days based on days_of_week
       const availableDays = Array.from({ length: totalDays }, (_, i) => {
         const date = new Date(startDateTime)
         date.setDate(date.getDate() + i)
         return venue.availability.days_of_week.includes(date.getDay()) ? 1 : 0
       }).reduce((sum, val) => sum + val, 0)
 
-      // Calculate total available hours
       const totalAvailableHours = availableDays * hoursPerDay
 
       return {
