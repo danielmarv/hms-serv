@@ -476,7 +476,7 @@ export const getServicePopularityReport = async (req, res) => {
       is_deleted: false,
       status: { $in: ["confirmed", "completed"] },
       start_date: { $gte: startDateTime, $lte: endDateTime },
-      "services.0": { $exists: true }, // Only bookings with services
+      "services.0": { $exists: true },
     }
 
     // Unwind services array and group by service
