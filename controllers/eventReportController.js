@@ -677,10 +677,8 @@ export const getFeedbackReport = async (req, res) => {
       rating: venue.count > 0 ? (venue.total / venue.count).toFixed(2) : 0,
     }))
 
-    // Sort venues by rating
     venueRatingsList.sort((a, b) => b.rating - a.rating)
 
-    // Group feedback by event type
     const eventTypeRatings = {}
     feedback.forEach((item) => {
       if (item.booking && item.booking.event_id && item.booking.event_id.event_type_id) {
