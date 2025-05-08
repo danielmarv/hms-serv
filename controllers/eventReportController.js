@@ -33,7 +33,6 @@ export const getRevenueReport = async (req, res) => {
       start_date: { $gte: startDateTime, $lte: endDateTime },
     }
 
-    // Build group stage based on group_by parameter
     let groupStage = {}
     let sortStage = {}
 
