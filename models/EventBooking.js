@@ -2,778 +2,370 @@ import mongoose from "mongoose"
 
 const eventBookingSchema = new mongoose.Schema(
   {
-    bookingNumber: {
-      type: String,
-      unique: true,
-      required: true,
-    },
-    hotel: {
+    event_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
-      required: [true, "Hotel ID is required"],
+      ref: "Event",
+      required: [true, "Event ID is required"],
+      index: true,
     },
-    venue: {
+    venue_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "EventVenue",
       required: [true, "Venue ID is required"],
+      index: true,
     },
-    eventType: {
+    hotel_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "EventType",
-      required: [true, "Event type ID is required"],
-    },
-    package: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "EventPackage",
+      ref: "Hotel",
+      required: [true, "Hotel ID is required"],
+      index: true,
     },
     customer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Guest",
-      required: [true, "Customer ID is required"],
+      name: {
+        type: String,
+        required: [true, "Customer name is required"],
+        trim: true,
+      },
+      email: {
+        type: String,
+        required: [true, "Customer email is required"],
+        trim: true,
+        lowercase: true,
+      },
+      phone: {
+        type: String,
+        trim: true,
+      },
+      company: {
+        type: String,
+        trim: true,
+      },
+      address: {
+        street: String,
+        city: String,
+        state: String,
+        zip: String,
+        country: String,
+      },
+      customer_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Guest",
+      },
     },
-    title: {
-      type: String,
-      required: [true, "Event title is required"],
-      trim: true,
-      maxlength: [100, "Event title cannot exceed 100 characters"],
-    },
-    description: {
-      type: String,
-      trim: true,
-      maxlength: [1000, "Description cannot exceed 1000 characters"],
-    },
-    startTime: {
+    start_date: {
       type: Date,
-      required: [true, "Start time is required"],
+      required: [true, "Start date is required"],
     },
-    endTime: {
+    end_date: {
       type: Date,
-      required: [true, "End time is required"],
+      required: [true, "End date is required"],
     },
-    setupStartTime: {
+    setup_start: {
       type: Date,
-      required: [true, "Setup start time is required"],
     },
-    cleanupEndTime: {
+    teardown_end: {
       type: Date,
-      required: [true, "Cleanup end time is required"],
     },
     attendees: {
       expected: {
         type: Number,
-        required: [true, "Expected number of attendees is required"],
-        min: [1, "Expected attendees must be at least 1"],
+        default: 0,
       },
       actual: {
         type: Number,
-        min: [0, "Actual attendees cannot be negative"],
       },
-      details: {
-        type: String,
-        trim: true,
+      min_guarantee: {
+        type: Number,
       },
     },
     services: [
       {
-        service: {
+        service_id: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "EventService",
-          required: [true, "Service ID is required"],
         },
+        name: String,
+        description: String,
         quantity: {
           type: Number,
-          required: [true, "Quantity is required"],
-          min: [1, "Quantity must be at least 1"],
+          default: 1,
         },
-        specialRequests: {
-          type: String,
-          trim: true,
-        },
-        price: {
+        unit_price: {
           type: Number,
-          required: [true, "Price is required"],
-          min: [0, "Price cannot be negative"],
+          default: 0,
         },
+        total_price: {
+          type: Number,
+          default: 0,
+        },
+        notes: String,
         status: {
           type: String,
-          enum: {
-            values: ["pending", "confirmed", "in_progress", "completed", "cancelled"],
-            message: "Invalid service status",
-          },
-          default: "pending",
-        },
-        notes: {
-          type: String,
-          trim: true,
-        },
-      },
-    ],
-    venueSetup: {
-      layout: {
-        type: String,
-        enum: {
-          values: ["theater", "classroom", "boardroom", "u_shape", "banquet", "reception", "custom"],
-          message: "Invalid layout type",
-        },
-        default: "theater",
-      },
-      customLayoutDetails: {
-        type: String,
-        trim: true,
-      },
-      specialRequests: {
-        type: String,
-        trim: true,
-      },
-      setupInstructions: {
-        type: String,
-        trim: true,
-      },
-      setupConfirmed: {
-        type: Boolean,
-        default: false,
-      },
-      setupCompletedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-      setupCompletedAt: {
-        type: Date,
-      },
-    },
-    catering: {
-      isRequired: {
-        type: Boolean,
-        default: false,
-      },
-      menuId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Menu",
-      },
-      mealType: {
-        type: String,
-        enum: {
-          values: ["breakfast", "lunch", "dinner", "cocktail", "buffet", "custom"],
-          message: "Invalid meal type",
-        },
-      },
-      headCount: {
-        type: Number,
-        min: [0, "Head count cannot be negative"],
-      },
-      dietaryRestrictions: [
-        {
-          type: String,
-          trim: true,
-        },
-      ],
-      specialRequests: {
-        type: String,
-        trim: true,
-      },
-      servingTime: {
-        type: Date,
-      },
-      status: {
-        type: String,
-        enum: {
-          values: ["pending", "confirmed", "in_progress", "completed", "cancelled"],
-          message: "Invalid catering status",
-        },
-        default: "pending",
-      },
-      notes: {
-        type: String,
-        trim: true,
-      },
-    },
-    equipment: [
-      {
-        name: {
-          type: String,
-          required: [true, "Equipment name is required"],
-          trim: true,
-        },
-        quantity: {
-          type: Number,
-          required: [true, "Quantity is required"],
-          min: [1, "Quantity must be at least 1"],
-        },
-        price: {
-          type: Number,
-          required: [true, "Price is required"],
-          min: [0, "Price cannot be negative"],
-        },
-        setupInstructions: {
-          type: String,
-          trim: true,
-        },
-        status: {
-          type: String,
-          enum: {
-            values: ["pending", "confirmed", "in_progress", "completed", "cancelled"],
-            message: "Invalid equipment status",
-          },
+          enum: ["pending", "confirmed", "cancelled", "delivered"],
           default: "pending",
         },
       },
     ],
-    staffAssignments: [
+    packages: [
       {
-        staff: {
+        package_id: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-          required: [true, "Staff ID is required"],
+          ref: "EventPackage",
         },
-        role: {
-          type: String,
-          required: [true, "Staff role is required"],
-          trim: true,
+        name: String,
+        description: String,
+        price: {
+          type: Number,
+          default: 0,
         },
-        startTime: {
-          type: Date,
-          required: [true, "Staff start time is required"],
-        },
-        endTime: {
-          type: Date,
-          required: [true, "Staff end time is required"],
-        },
-        notes: {
-          type: String,
-          trim: true,
-        },
-        status: {
-          type: String,
-          enum: {
-            values: ["assigned", "confirmed", "checked_in", "completed", "no_show"],
-            message: "Invalid staff status",
+        services: [
+          {
+            service_id: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "EventService",
+            },
+            name: String,
+            quantity: {
+              type: Number,
+              default: 1,
+            },
           },
-          default: "assigned",
-        },
-        checkedInAt: {
-          type: Date,
-        },
-        checkedOutAt: {
-          type: Date,
-        },
+        ],
       },
     ],
     pricing: {
-      venuePrice: {
-        type: Number,
-        required: [true, "Venue price is required"],
-        min: [0, "Venue price cannot be negative"],
-      },
-      servicesCost: {
-        type: Number,
-        required: [true, "Services cost is required"],
-        min: [0, "Services cost cannot be negative"],
-      },
-      equipmentCost: {
-        type: Number,
-        required: [true, "Equipment cost is required"],
-        min: [0, "Equipment cost cannot be negative"],
-      },
-      cateringCost: {
-        type: Number,
-        required: [true, "Catering cost is required"],
-        min: [0, "Catering cost cannot be negative"],
-      },
-      staffingCost: {
+      venue_fee: {
         type: Number,
         default: 0,
-        min: [0, "Staffing cost cannot be negative"],
       },
-      additionalCosts: [
-        {
-          description: {
-            type: String,
-            required: [true, "Cost description is required"],
-            trim: true,
-          },
-          amount: {
-            type: Number,
-            required: [true, "Cost amount is required"],
-            min: [0, "Cost amount cannot be negative"],
-          },
-        },
-      ],
-      discounts: [
-        {
-          description: {
-            type: String,
-            required: [true, "Discount description is required"],
-            trim: true,
-          },
-          amount: {
-            type: Number,
-            min: [0, "Discount amount cannot be negative"],
-          },
-          percentage: {
-            type: Number,
-            min: [0, "Discount percentage cannot be negative"],
-            max: [100, "Discount percentage cannot exceed 100"],
-          },
-        },
-      ],
-      taxRate: {
+      services_total: {
         type: Number,
-        required: [true, "Tax rate is required"],
-        min: [0, "Tax rate cannot be negative"],
+        default: 0,
       },
-      taxAmount: {
+      packages_total: {
         type: Number,
-        required: [true, "Tax amount is required"],
-        min: [0, "Tax amount cannot be negative"],
+        default: 0,
       },
-      totalBeforeTax: {
+      subtotal: {
         type: Number,
-        required: [true, "Total before tax is required"],
-        min: [0, "Total before tax cannot be negative"],
+        default: 0,
       },
-      grandTotal: {
+      tax_rate: {
         type: Number,
-        required: [true, "Grand total is required"],
-        min: [0, "Grand total cannot be negative"],
+        default: 0,
+      },
+      tax_amount: {
+        type: Number,
+        default: 0,
+      },
+      service_charge_rate: {
+        type: Number,
+        default: 0,
+      },
+      service_charge_amount: {
+        type: Number,
+        default: 0,
+      },
+      discount_amount: {
+        type: Number,
+        default: 0,
+      },
+      discount_reason: String,
+      total: {
+        type: Number,
+        default: 0,
+      },
+      deposit_required: {
+        type: Number,
+        default: 0,
+      },
+      currency: {
+        type: String,
+        default: "USD",
       },
     },
     payment: {
       status: {
         type: String,
-        enum: {
-          values: ["pending", "partial", "paid", "refunded", "cancelled"],
-          message: "Invalid payment status",
-        },
+        enum: ["pending", "partial", "paid", "refunded"],
         default: "pending",
       },
-      depositRequired: {
-        type: Boolean,
-        default: true,
-      },
-      depositAmount: {
-        type: Number,
-        min: [0, "Deposit amount cannot be negative"],
-      },
-      depositPaid: {
+      deposit_paid: {
         type: Boolean,
         default: false,
       },
-      depositPaidDate: {
-        type: Date,
-      },
-      depositPaymentMethod: {
-        type: String,
-        enum: {
-          values: ["cash", "credit_card", "bank_transfer", "check", "other"],
-          message: "Invalid payment method",
-        },
-      },
-      amountPaid: {
+      deposit_date: Date,
+      deposit_method: String,
+      deposit_reference: String,
+      amount_paid: {
         type: Number,
         default: 0,
-        min: [0, "Amount paid cannot be negative"],
       },
-      balance: {
+      balance_due: {
         type: Number,
-        min: [0, "Balance cannot be negative"],
+        default: 0,
       },
-      dueDate: {
-        type: Date,
-      },
+      payment_due_date: Date,
       transactions: [
         {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Payment",
+          date: Date,
+          amount: Number,
+          method: String,
+          reference: String,
+          notes: String,
         },
       ],
-      billingAddress: {
-        addressLine1: {
-          type: String,
-          trim: true,
-        },
-        addressLine2: {
-          type: String,
-          trim: true,
-        },
-        city: {
-          type: String,
-          trim: true,
-        },
-        state: {
-          type: String,
-          trim: true,
-        },
-        postalCode: {
-          type: String,
-          trim: true,
-        },
-        country: {
-          type: String,
-          trim: true,
-        },
+    },
+    contract: {
+      status: {
+        type: String,
+        enum: ["pending", "sent", "signed", "cancelled"],
+        default: "pending",
       },
-      billingContact: {
-        name: {
-          type: String,
-          trim: true,
-        },
-        email: {
-          type: String,
-          trim: true,
-          lowercase: true,
-        },
-        phone: {
-          type: String,
-          trim: true,
-        },
+      sent_date: Date,
+      signed_date: Date,
+      document_url: String,
+      signed_by: String,
+      terms_accepted: {
+        type: Boolean,
+        default: false,
       },
     },
     status: {
       type: String,
-      enum: {
-        values: ["inquiry", "tentative", "pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"],
-        message: "Invalid booking status",
-      },
+      enum: ["inquiry", "tentative", "confirmed", "in_progress", "completed", "cancelled", "no_show"],
       default: "inquiry",
     },
-    cancellation: {
-      isCancelled: {
-        type: Boolean,
-        default: false,
-      },
-      cancelledBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-      cancellationDate: {
-        type: Date,
-      },
-      cancellationReason: {
-        type: String,
-        trim: true,
-      },
-      refundAmount: {
-        type: Number,
-        min: [0, "Refund amount cannot be negative"],
-      },
-      cancellationFee: {
-        type: Number,
-        min: [0, "Cancellation fee cannot be negative"],
-      },
-      cancellationPolicy: {
-        type: String,
-        trim: true,
-      },
+    notes: {
+      internal: String,
+      customer: String,
+      special_requests: String,
     },
-    documents: [
-      {
-        name: {
-          type: String,
-          required: [true, "Document name is required"],
-          trim: true,
-        },
-        url: {
-          type: String,
-          required: [true, "Document URL is required"],
-        },
-        type: {
-          type: String,
-          enum: {
-            values: ["contract", "invoice", "receipt", "proposal", "beo", "other"],
-            message: "Invalid document type",
-          },
-          default: "other",
-        },
-        uploadedBy: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-        },
-        uploadedAt: {
-          type: Date,
-          default: Date.now,
-        },
-        isCustomerVisible: {
-          type: Boolean,
-          default: false,
-        },
-      },
-    ],
-    notes: [
-      {
-        content: {
-          type: String,
-          required: [true, "Note content is required"],
-          trim: true,
-        },
-        createdBy: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-          required: [true, "User ID is required"],
-        },
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
-        isInternal: {
-          type: Boolean,
-          default: true,
-        },
-      },
-    ],
     timeline: [
       {
-        action: {
-          type: String,
-          required: [true, "Action is required"],
-          trim: true,
-        },
-        timestamp: {
-          type: Date,
-          default: Date.now,
-        },
-        user: {
+        status: String,
+        date: Date,
+        user_id: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",
         },
-        details: {
-          type: String,
-          trim: true,
-        },
+        notes: String,
       },
     ],
-    checklist: [
+    attachments: [
       {
-        task: {
-          type: String,
-          required: [true, "Task is required"],
-          trim: true,
-        },
-        description: {
-          type: String,
-          trim: true,
-        },
-        dueDate: {
-          type: Date,
-        },
-        isCompleted: {
-          type: Boolean,
-          default: false,
-        },
-        completedBy: {
+        name: String,
+        file_url: String,
+        uploaded_at: Date,
+        uploaded_by: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",
-        },
-        completedAt: {
-          type: Date,
-        },
-        assignedTo: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-        },
-        priority: {
-          type: String,
-          enum: {
-            values: ["low", "medium", "high", "critical"],
-            message: "Invalid priority level",
-          },
-          default: "medium",
         },
       },
     ],
-    feedback: {
-      rating: {
-        type: Number,
-        min: [1, "Rating must be at least 1"],
-        max: [5, "Rating cannot exceed 5"],
-      },
-      comments: {
-        type: String,
-        trim: true,
-      },
-      submittedAt: {
-        type: Date,
-      },
-      areas: {
-        venue: {
-          rating: {
-            type: Number,
-            min: [1, "Rating must be at least 1"],
-            max: [5, "Rating cannot exceed 5"],
-          },
-          comments: {
-            type: String,
-            trim: true,
-          },
-        },
-        catering: {
-          rating: {
-            type: Number,
-            min: [1, "Rating must be at least 1"],
-            max: [5, "Rating cannot exceed 5"],
-          },
-          comments: {
-            type: String,
-            trim: true,
-          },
-        },
-        staff: {
-          rating: {
-            type: Number,
-            min: [1, "Rating must be at least 1"],
-            max: [5, "Rating cannot exceed 5"],
-          },
-          comments: {
-            type: String,
-            trim: true,
-          },
-        },
-        overall: {
-          rating: {
-            type: Number,
-            min: [1, "Rating must be at least 1"],
-            max: [5, "Rating cannot exceed 5"],
-          },
-          comments: {
-            type: String,
-            trim: true,
-          },
-        },
-      },
-      followUpRequired: {
-        type: Boolean,
-        default: false,
-      },
-      followUpNotes: {
-        type: String,
-        trim: true,
-      },
-      followUpCompletedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-      followUpCompletedAt: {
-        type: Date,
-      },
+    is_deleted: {
+      type: Boolean,
+      default: false,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "User ID is required"],
     },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    isDeleted: {
-      type: Boolean,
-      default: false,
-      select: false,
-    },
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
   },
 )
 
-// Generate booking number
-eventBookingSchema.pre("save", async function (next) {
-  if (!this.isNew) return next()
+// Add indexes for common queries
+eventBookingSchema.index({ hotel_id: 1, status: 1 })
+eventBookingSchema.index({ venue_id: 1, start_date: 1, end_date: 1 })
+eventBookingSchema.index({ "customer.email": 1 })
+eventBookingSchema.index({ "customer.customer_id": 1 })
+eventBookingSchema.index({ start_date: 1, end_date: 1 })
 
-  try {
-    const date = new Date()
-    const year = date.getFullYear().toString().slice(-2)
-    const month = (date.getMonth() + 1).toString().padStart(2, "0")
-
-    // Find the latest booking number for this month
-    const latestBooking = await this.constructor.findOne(
-      {
-        bookingNumber: { $regex: `^EVT-${year}${month}` },
-        hotel: this.hotel,
-      },
-      { bookingNumber: 1 },
-      { sort: { bookingNumber: -1 } },
-    )
-
-    let sequenceNumber = 1
-    if (latestBooking) {
-      const latestSequence = Number.parseInt(latestBooking.bookingNumber.split("-")[2])
-      sequenceNumber = latestSequence + 1
-    }
-
-    this.bookingNumber = `EVT-${year}${month}-${sequenceNumber.toString().padStart(4, "0")}`
-    next()
-  } catch (error) {
-    next(error)
-  }
-})
-
-// Calculate setup and cleanup times
-eventBookingSchema.pre("save", async function (next) {
-  if (!this.isModified("startTime") && !this.isModified("endTime") && !this.isNew) return next()
-
-  try {
-    // Get venue for setup and cleanup times
-    const EventVenue = mongoose.model("EventVenue")
-    const venue = await EventVenue.findById(this.venue)
-
-    if (!venue) {
-      return next(new Error("Venue not found"))
-    }
-
-    // Calculate setup start time (start time - setup time)
-    const setupMinutes = venue.setupTime || 60
-    const setupStartTime = new Date(this.startTime)
-    setupStartTime.setMinutes(setupStartTime.getMinutes() - setupMinutes)
-    this.setupStartTime = setupStartTime
-
-    // Calculate cleanup end time (end time + cleanup time)
-    const cleanupMinutes = venue.cleanupTime || 60
-    const cleanupEndTime = new Date(this.endTime)
-    cleanupEndTime.setMinutes(cleanupEndTime.getMinutes() + cleanupMinutes)
-    this.cleanupEndTime = cleanupEndTime
-
-    next()
-  } catch (error) {
-    next(error)
-  }
-})
-
-// Add to timeline
+// Pre-save middleware to calculate pricing
 eventBookingSchema.pre("save", function (next) {
-  if (this.isNew) {
-    this.timeline = [
-      {
-        action: "Booking created",
-        timestamp: new Date(),
-        user: this.createdBy,
-        details: `Booking ${this.bookingNumber} created for ${this.title}`,
-      },
-    ]
-  } else if (this.isModified("status")) {
-    this.timeline.push({
-      action: `Status changed to ${this.status}`,
-      timestamp: new Date(),
-      user: this.updatedBy,
-      details: `Booking status updated from ${this._oldStatus || "unknown"} to ${this.status}`,
+  // Calculate services total
+  let servicesTotal = 0
+  if (this.services && this.services.length > 0) {
+    this.services.forEach((service) => {
+      service.total_price = service.unit_price * service.quantity
+      servicesTotal += service.total_price
     })
   }
+  this.pricing.services_total = servicesTotal
 
-  // Store current status for future reference
-  this._oldStatus = this.status
+  // Calculate packages total
+  let packagesTotal = 0
+  if (this.packages && this.packages.length > 0) {
+    this.packages.forEach((pkg) => {
+      packagesTotal += pkg.price
+    })
+  }
+  this.pricing.packages_total = packagesTotal
+
+  // Calculate subtotal
+  this.pricing.subtotal = this.pricing.venue_fee + this.pricing.services_total + this.pricing.packages_total
+
+  // Calculate tax amount
+  this.pricing.tax_amount = this.pricing.subtotal * (this.pricing.tax_rate / 100)
+
+  // Calculate service charge amount
+  this.pricing.service_charge_amount = this.pricing.subtotal * (this.pricing.service_charge_rate / 100)
+
+  // Calculate total
+  this.pricing.total =
+    this.pricing.subtotal + this.pricing.tax_amount + this.pricing.service_charge_amount - this.pricing.discount_amount
+
+  // Calculate balance due
+  this.payment.balance_due = this.pricing.total - this.payment.amount_paid
+
+  // Add status change to timeline if status has changed
+  if (this.isModified("status")) {
+    this.timeline.push({
+      status: this.status,
+      date: new Date(),
+      user_id: this.updatedBy,
+    })
+  }
 
   next()
 })
 
-// Index for efficient queries
-eventBookingSchema.index({ hotel: 1, venue: 1, startTime: 1, endTime: 1 })
-eventBookingSchema.index({ hotel: 1, customer: 1 })
-eventBookingSchema.index({ bookingNumber: 1 })
-eventBookingSchema.index({ status: 1 })
-eventBookingSchema.index({ "payment.status": 1 })
-eventBookingSchema.index({ isDeleted: 1 })
+// Method to check if booking can be cancelled
+eventBookingSchema.methods.canCancel = function () {
+  const now = new Date()
+  const startDate = new Date(this.start_date)
+  const daysDifference = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24))
+
+  // Check if booking is already in progress or completed
+  if (["in_progress", "completed", "cancelled", "no_show"].includes(this.status)) {
+    return {
+      canCancel: false,
+      reason: `Booking is already ${this.status}`,
+    }
+  }
+
+  // Check cancellation policy (example: must cancel at least 3 days before)
+  if (daysDifference < 3) {
+    return {
+      canCancel: true,
+      penalty: true,
+      penaltyAmount: this.pricing.total * 0.5, // 50% penalty for late cancellation
+      reason: "Late cancellation fee applies",
+    }
+  }
+
+  return {
+    canCancel: true,
+    penalty: false,
+  }
+}
 
 const EventBooking = mongoose.model("EventBooking", eventBookingSchema)
-
 export default EventBooking

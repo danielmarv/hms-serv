@@ -1,4 +1,5 @@
 import mongoose from "mongoose"
+import Event from "./Event.js"
 
 const eventVenueSchema = new mongoose.Schema(
   {
@@ -6,417 +7,132 @@ const eventVenueSchema = new mongoose.Schema(
       type: String,
       required: [true, "Venue name is required"],
       trim: true,
-      maxlength: [100, "Venue name cannot exceed 100 characters"],
-    },
-    hotel: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
-      required: [true, "Hotel ID is required"],
-    },
-    type: {
-      type: String,
-      required: [true, "Venue type is required"],
-      enum: {
-        values: [
-          "conference_hall",
-          "garden",
-          "ballroom",
-          "meeting_room",
-          "banquet_hall",
-          "poolside",
-          "rooftop",
-          "other",
-        ],
-        message: "Invalid venue type",
-      },
-    },
-    capacity: {
-      min: {
-        type: Number,
-        required: [true, "Minimum capacity is required"],
-        min: [1, "Minimum capacity must be at least 1"],
-      },
-      max: {
-        type: Number,
-        required: [true, "Maximum capacity is required"],
-        min: [1, "Maximum capacity must be at least 1"],
-      },
-      optimal: {
-        type: Number,
-        min: [1, "Optimal capacity must be at least 1"],
-      },
-    },
-    area: {
-      value: {
-        type: Number,
-        required: [true, "Area value is required"],
-        min: [1, "Area must be at least 1"],
-      },
-      unit: {
-        type: String,
-        required: [true, "Area unit is required"],
-        enum: {
-          values: ["sq_ft", "sq_m"],
-          message: "Invalid area unit",
-        },
-        default: "sq_ft",
-      },
-    },
-    dimensions: {
-      length: {
-        type: Number,
-        min: [0, "Length cannot be negative"],
-      },
-      width: {
-        type: Number,
-        min: [0, "Width cannot be negative"],
-      },
-      height: {
-        type: Number,
-        min: [0, "Height cannot be negative"],
-      },
-      unit: {
-        type: String,
-        enum: {
-          values: ["ft", "m"],
-          message: "Invalid dimension unit",
-        },
-        default: "ft",
-      },
-    },
-    basePrice: {
-      type: Number,
-      required: [true, "Base price is required"],
-      min: [0, "Base price cannot be negative"],
-    },
-    pricePerHour: {
-      type: Number,
-      required: [true, "Price per hour is required"],
-      min: [0, "Price per hour cannot be negative"],
     },
     description: {
       type: String,
       trim: true,
-      maxlength: [1000, "Description cannot exceed 1000 characters"],
     },
-    features: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
-    amenities: [
-      {
-        name: {
-          type: String,
-          required: [true, "Amenity name is required"],
-          trim: true,
-        },
-        description: {
-          type: String,
-          trim: true,
-        },
-        additionalCost: {
-          type: Number,
-          default: 0,
-          min: [0, "Additional cost cannot be negative"],
-        },
-        isIncluded: {
-          type: Boolean,
-          default: true,
-        },
-      },
-    ],
-    images: [
-      {
-        url: {
-          type: String,
-          required: [true, "Image URL is required"],
-        },
-        caption: {
-          type: String,
-          trim: true,
-        },
-        isDefault: {
-          type: Boolean,
-          default: false,
-        },
-      },
-    ],
-    floorPlan: {
-      url: {
-        type: String,
-      },
-      description: {
-        type: String,
-        trim: true,
-      },
+    hotel_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hotel",
+      required: [true, "Hotel ID is required"],
+      index: true,
     },
-    layouts: [
-      {
-        name: {
-          type: String,
-          required: [true, "Layout name is required"],
-          trim: true,
-        },
-        description: {
-          type: String,
-          trim: true,
-        },
-        capacity: {
-          type: Number,
-          required: [true, "Layout capacity is required"],
-          min: [1, "Layout capacity must be at least 1"],
-        },
-        image: {
-          type: String,
-        },
-        isDefault: {
-          type: Boolean,
-          default: false,
-        },
-      },
-    ],
-    availability: {
-      monday: {
-        isAvailable: { type: Boolean, default: true },
-        openTime: { type: String, default: "08:00" },
-        closeTime: { type: String, default: "22:00" },
-      },
-      tuesday: {
-        isAvailable: { type: Boolean, default: true },
-        openTime: { type: String, default: "08:00" },
-        closeTime: { type: String, default: "22:00" },
-      },
-      wednesday: {
-        isAvailable: { type: Boolean, default: true },
-        openTime: { type: String, default: "08:00" },
-        closeTime: { type: String, default: "22:00" },
-      },
-      thursday: {
-        isAvailable: { type: Boolean, default: true },
-        openTime: { type: String, default: "08:00" },
-        closeTime: { type: String, default: "22:00" },
-      },
-      friday: {
-        isAvailable: { type: Boolean, default: true },
-        openTime: { type: String, default: "08:00" },
-        closeTime: { type: String, default: "22:00" },
-      },
-      saturday: {
-        isAvailable: { type: Boolean, default: true },
-        openTime: { type: String, default: "08:00" },
-        closeTime: { type: String, default: "22:00" },
-      },
-      sunday: {
-        isAvailable: { type: Boolean, default: true },
-        openTime: { type: String, default: "08:00" },
-        closeTime: { type: String, default: "22:00" },
-      },
-    },
-    setupTime: {
-      type: Number,
-      default: 60,
-      min: [0, "Setup time cannot be negative"],
-      description: "Setup time in minutes",
-    },
-    cleanupTime: {
-      type: Number,
-      default: 60,
-      min: [0, "Cleanup time cannot be negative"],
-      description: "Cleanup time in minutes",
-    },
-    minimumBookingHours: {
-      type: Number,
-      default: 2,
-      min: [1, "Minimum booking hours must be at least 1"],
-    },
-    cancellationPolicy: {
+    type: {
       type: String,
-      enum: {
-        values: ["flexible", "moderate", "strict"],
-        message: "Invalid cancellation policy",
+      enum: ["ballroom", "conference_room", "meeting_room", "banquet_hall", "outdoor", "restaurant", "other"],
+      required: [true, "Venue type is required"],
+    },
+    capacity: {
+      type: Number,
+      required: [true, "Capacity is required"],
+      min: [1, "Capacity must be at least 1"],
+    },
+    area: {
+      value: {
+        type: Number,
       },
-      default: "moderate",
+      unit: {
+        type: String,
+        enum: ["sq_ft", "sq_m"],
+        default: "sq_ft",
+      },
     },
     location: {
-      floor: {
-        type: String,
-        trim: true,
-      },
-      building: {
-        type: String,
-        trim: true,
-      },
-      directions: {
-        type: String,
-        trim: true,
-      },
-      accessInstructions: {
-        type: String,
-        trim: true,
-      },
+      floor: String,
+      building: String,
+      directions: String,
     },
-    technicalSpecifications: {
-      powerOutlets: {
+    amenities: [String],
+    features: [String],
+    pricing: {
+      base_price: {
         type: Number,
         default: 0,
       },
-      internetSpeed: {
+      price_per_hour: {
+        type: Number,
+        default: 0,
+      },
+      price_per_person: {
+        type: Number,
+        default: 0,
+      },
+      minimum_spend: {
+        type: Number,
+        default: 0,
+      },
+      currency: {
         type: String,
-        trim: true,
+        default: "USD",
       },
-      hasProjector: {
-        type: Boolean,
-        default: false,
+    },
+    availability: {
+      days_of_week: {
+        type: [Number], // 0 = Sunday, 1 = Monday, etc.
+        default: [0, 1, 2, 3, 4, 5, 6],
       },
-      hasAudioSystem: {
-        type: Boolean,
-        default: false,
-      },
-      hasVideoConferencing: {
-        type: Boolean,
-        default: false,
-      },
-      hasNaturalLight: {
-        type: Boolean,
-        default: false,
-      },
-      hasSoundproofing: {
-        type: Boolean,
-        default: false,
-      },
-      hasStage: {
-        type: Boolean,
-        default: false,
-      },
-      stageSize: {
+      start_time: {
         type: String,
-        trim: true,
+        default: "08:00",
       },
-      additionalEquipment: [
+      end_time: {
+        type: String,
+        default: "22:00",
+      },
+      exceptions: [
         {
-          type: String,
-          trim: true,
+          date: Date,
+          available: Boolean,
+          reason: String,
         },
       ],
     },
-    restrictions: {
-      noSmoking: {
-        type: Boolean,
-        default: true,
-      },
-      noAlcohol: {
-        type: Boolean,
-        default: false,
-      },
-      noOutsideCatering: {
-        type: Boolean,
-        default: false,
-      },
-      noConfetti: {
-        type: Boolean,
-        default: false,
-      },
-      noPets: {
-        type: Boolean,
-        default: true,
-      },
-      noLoudMusic: {
-        type: Boolean,
-        default: false,
-      },
-      additionalRestrictions: [
-        {
-          type: String,
-          trim: true,
-        },
-      ],
+    setup_time: {
+      type: Number, // Minutes required for setup
+      default: 60,
     },
-    accessibility: {
-      isWheelchairAccessible: {
-        type: Boolean,
-        default: true,
+    teardown_time: {
+      type: Number, // Minutes required for teardown
+      default: 60,
+    },
+    minimum_hours: {
+      type: Number,
+      default: 2,
+    },
+    cancellation_policy: {
+      type: String,
+      enum: ["flexible", "moderate", "strict"],
+      default: "moderate",
+    },
+    images: [
+      {
+        url: String,
+        caption: String,
       },
-      hasAccessibleRestroom: {
-        type: Boolean,
-        default: true,
-      },
-      hasElevator: {
-        type: Boolean,
-        default: true,
-      },
-      hasAccessibleParking: {
-        type: Boolean,
-        default: true,
-      },
-      additionalAccessibility: [
-        {
-          type: String,
-          trim: true,
-        },
-      ],
+    ],
+    floor_plan: {
+      url: String,
+      width: Number,
+      height: Number,
     },
     status: {
       type: String,
-      enum: {
-        values: ["active", "maintenance", "inactive"],
-        message: "Invalid venue status",
-      },
+      enum: ["active", "inactive", "maintenance"],
       default: "active",
     },
-    maintenanceSchedule: [
-      {
-        startDate: {
-          type: Date,
-          required: true,
-        },
-        endDate: {
-          type: Date,
-          required: true,
-        },
-        reason: {
-          type: String,
-          trim: true,
-        },
-        notes: {
-          type: String,
-          trim: true,
-        },
+    maintenance: {
+      start_date: Date,
+      end_date: Date,
+      reason: String,
+      scheduled_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
       },
-    ],
-    reviews: [
-      {
-        rating: {
-          type: Number,
-          required: true,
-          min: [1, "Rating must be at least 1"],
-          max: [5, "Rating cannot exceed 5"],
-        },
-        comment: {
-          type: String,
-          trim: true,
-        },
-        reviewer: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-        },
-        date: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
-    averageRating: {
-      type: Number,
-      min: [0, "Average rating cannot be negative"],
-      max: [5, "Average rating cannot exceed 5"],
-      default: 0,
     },
-    isDeleted: {
+    is_deleted: {
       type: Boolean,
       default: false,
-      select: false,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -429,175 +145,128 @@ const eventVenueSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
   },
 )
 
-// Virtual for getting default image
-eventVenueSchema.virtual("defaultImage").get(function () {
-  const defaultImage = this.images.find((img) => img.isDefault)
-  return defaultImage ? defaultImage.url : this.images.length > 0 ? this.images[0].url : null
-})
+// Add indexes for common queries
+eventVenueSchema.index({ hotel_id: 1, status: 1 })
+eventVenueSchema.index({ name: 1, hotel_id: 1 }, { unique: true })
+eventVenueSchema.index({ capacity: 1 })
 
-// Virtual for getting default layout
-eventVenueSchema.virtual("defaultLayout").get(function () {
-  const defaultLayout = this.layouts.find((layout) => layout.isDefault)
-  return defaultLayout ? defaultLayout : this.layouts.length > 0 ? this.layouts[0] : null
-})
+// Method to check venue availability
+eventVenueSchema.statics.checkAvailability = async function (venueId, startTime, endTime, excludeEventId = null) {
+  const startDateTime = new Date(startTime)
+  const endDateTime = new Date(endTime)
 
-// Virtual for upcoming bookings
-eventVenueSchema.virtual("upcomingBookings", {
-  ref: "EventBooking",
-  localField: "_id",
-  foreignField: "venue",
-  match: {
-    startTime: { $gte: new Date() },
-    status: { $in: ["confirmed", "pending"] },
-    isDeleted: false,
-  },
-})
-
-// Index for efficient queries
-eventVenueSchema.index({ hotel: 1, type: 1, status: 1 })
-eventVenueSchema.index({ hotel: 1, "capacity.min": 1, "capacity.max": 1 })
-eventVenueSchema.index({ isDeleted: 1 })
-
-// Pre-save middleware to ensure at least one default image
-eventVenueSchema.pre("save", function (next) {
-  if (this.images && this.images.length > 0) {
-    const hasDefault = this.images.some((img) => img.isDefault)
-    if (!hasDefault) {
-      this.images[0].isDefault = true
-    }
+  if (endDateTime <= startDateTime) {
+    throw new Error("End time must be after start time")
   }
 
-  // Ensure at least one default layout
-  if (this.layouts && this.layouts.length > 0) {
-    const hasDefaultLayout = this.layouts.some((layout) => layout.isDefault)
-    if (!hasDefaultLayout) {
-      this.layouts[0].isDefault = true
-    }
+  // Check if venue exists and is active
+  const venue = await this.findOne({ _id: venueId, is_deleted: false })
+  if (!venue) {
+    throw new Error("Venue not found")
   }
 
-  // Calculate average rating
-  if (this.reviews && this.reviews.length > 0) {
-    const totalRating = this.reviews.reduce((sum, review) => sum + review.rating, 0)
-    this.averageRating = totalRating / this.reviews.length
-  } else {
-    this.averageRating = 0
+  if (venue.status === "inactive") {
+    throw new Error("Venue is inactive")
   }
 
-  next()
-})
+  if (venue.status === "maintenance") {
+    if (venue.maintenance && venue.maintenance.start_date && venue.maintenance.end_date) {
+      const maintenanceStart = new Date(venue.maintenance.start_date)
+      const maintenanceEnd = new Date(venue.maintenance.end_date)
 
-// Static method to check venue availability
-eventVenueSchema.statics.checkAvailability = async function (venueId, startTime, endTime) {
-  try {
-    const venue = await this.findById(venueId)
-    if (!venue) {
-      throw new Error("Venue not found")
-    }
-
-    if (venue.status !== "active") {
-      throw new Error(`Venue is currently ${venue.status}`)
-    }
-
-    // Check if the venue is available on the day of the week
-    const startDate = new Date(startTime)
-    const dayOfWeek = startDate.toLocaleDateString("en-US", { weekday: "lowercase" })
-
-    if (!venue.availability[dayOfWeek].isAvailable) {
-      throw new Error(`Venue is not available on ${dayOfWeek}s`)
-    }
-
-    // Check if the booking time is within venue operating hours
-    const startHour = startDate.getHours() + startDate.getMinutes() / 60
-    const endDate = new Date(endTime)
-    const endHour = endDate.getHours() + endDate.getMinutes() / 60
-
-    const venueOpenHour =
-      Number.parseInt(venue.availability[dayOfWeek].openTime.split(":")[0]) +
-      Number.parseInt(venue.availability[dayOfWeek].openTime.split(":")[1]) / 60
-    const venueCloseHour =
-      Number.parseInt(venue.availability[dayOfWeek].closeTime.split(":")[0]) +
-      Number.parseInt(venue.availability[dayOfWeek].closeTime.split(":")[1]) / 60
-
-    if (startHour < venueOpenHour || endHour > venueCloseHour) {
-      throw new Error(
-        `Booking time is outside venue operating hours (${venue.availability[dayOfWeek].openTime} - ${venue.availability[dayOfWeek].closeTime})`,
-      )
-    }
-
-    // Check if the booking duration meets the minimum requirement
-    const durationHours = (endDate - startDate) / (1000 * 60 * 60)
-    if (durationHours < venue.minimumBookingHours) {
-      throw new Error(`Booking duration must be at least ${venue.minimumBookingHours} hours`)
-    }
-
-    // Check for maintenance schedule conflicts
-    const hasMaintenanceConflict = venue.maintenanceSchedule.some((schedule) => {
-      return startDate <= schedule.endDate && endDate >= schedule.startDate
-    })
-
-    if (hasMaintenanceConflict) {
-      throw new Error("Venue is scheduled for maintenance during the requested time")
-    }
-
-    // Check for existing bookings
-    const EventBooking = mongoose.model("EventBooking")
-    const conflictingBookings = await EventBooking.find({
-      venue: venueId,
-      status: { $in: ["confirmed", "pending"] },
-      $or: [{ startTime: { $lt: endTime }, endTime: { $gt: startTime } }],
-      isDeleted: false,
-    })
-
-    if (conflictingBookings.length > 0) {
-      throw new Error("Venue is already booked during the requested time")
-    }
-
-    return true
-  } catch (error) {
-    throw error
-  }
-}
-
-// Method to calculate price
-eventVenueSchema.methods.calculatePrice = function (startTime, endTime, additionalServices = [], layout = null) {
-  const startDate = new Date(startTime)
-  const endDate = new Date(endTime)
-  const durationHours = (endDate - startDate) / (1000 * 60 * 60)
-
-  // Base price + hourly rate
-  let totalPrice = this.basePrice + this.pricePerHour * durationHours
-
-  // Add cost of selected amenities
-  if (additionalServices && additionalServices.length > 0) {
-    additionalServices.forEach((service) => {
-      const amenity = this.amenities.find((a) => a._id.toString() === service.amenityId)
-      if (amenity && !amenity.isIncluded) {
-        totalPrice += amenity.additionalCost
+      // Check if requested time overlaps with maintenance
+      if (
+        (startDateTime >= maintenanceStart && startDateTime < maintenanceEnd) ||
+        (endDateTime > maintenanceStart && endDateTime <= maintenanceEnd) ||
+        (startDateTime <= maintenanceStart && endDateTime >= maintenanceEnd)
+      ) {
+        throw new Error(
+          `Venue is under maintenance from ${maintenanceStart.toISOString()} to ${maintenanceEnd.toISOString()}`,
+        )
       }
-    })
+    } else {
+      throw new Error("Venue is under maintenance")
+    }
   }
 
-  // Apply weekend surcharge (10% extra on weekends)
-  const dayOfWeek = startDate.getDay()
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    // 0 is Sunday, 6 is Saturday
-    totalPrice *= 1.1
+  // Check day of week availability
+  const dayOfWeek = startDateTime.getDay() // 0 = Sunday, 1 = Monday, etc.
+  if (!venue.availability.days_of_week.includes(dayOfWeek)) {
+    throw new Error(
+      `Venue is not available on ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dayOfWeek]}`,
+    )
   }
 
-  // Apply peak hour surcharge (15% extra for bookings between 6pm and 10pm)
-  const bookingHour = startDate.getHours()
-  if (bookingHour >= 18 && bookingHour < 22) {
-    totalPrice *= 1.15
+  // Check time of day availability
+  const startTimeStr = `${startDateTime.getHours().toString().padStart(2, "0")}:${startDateTime.getMinutes().toString().padStart(2, "0")}`
+  const endTimeStr = `${endDateTime.getHours().toString().padStart(2, "0")}:${endDateTime.getMinutes().toString().padStart(2, "0")}`
+
+  if (startTimeStr < venue.availability.start_time) {
+    throw new Error(`Venue is not available before ${venue.availability.start_time}`)
   }
 
-  return totalPrice
+  if (endTimeStr > venue.availability.end_time) {
+    throw new Error(`Venue is not available after ${venue.availability.end_time}`)
+  }
+
+  // Check for date exceptions
+  const startDate = new Date(startDateTime)
+  startDate.setHours(0, 0, 0, 0)
+
+  const exception = venue.availability.exceptions.find((ex) => {
+    const exDate = new Date(ex.date)
+    exDate.setHours(0, 0, 0, 0)
+    return exDate.getTime() === startDate.getTime()
+  })
+
+  if (exception && !exception.available) {
+    throw new Error(`Venue is not available on ${startDate.toISOString().split("T")[0]}: ${exception.reason}`)
+  }
+
+  // Check minimum booking duration
+  const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60)
+  if (durationHours < venue.minimum_hours) {
+    throw new Error(`Booking duration must be at least ${venue.minimum_hours} hours`)
+  }
+
+  // Check for conflicting events
+  const filter = {
+    venue_id: venueId,
+    is_deleted: false,
+    status: { $nin: ["cancelled"] },
+    $or: [
+      // New event starts during an existing event
+      { start_date: { $lte: startDateTime }, end_date: { $gt: startDateTime } },
+      // New event ends during an existing event
+      { start_date: { $lt: endDateTime }, end_date: { $gte: endDateTime } },
+      // New event contains an existing event
+      { start_date: { $gte: startDateTime, $lt: endDateTime } },
+    ],
+  }
+
+  // Exclude current event if provided
+  if (excludeEventId) {
+    filter._id = { $ne: excludeEventId }
+  }
+
+  const conflictingEvents = await Event.find(filter).select("title start_date end_date status").lean()
+
+  if (conflictingEvents.length > 0) {
+    throw new Error("Venue is already booked during the requested time")
+  }
+
+  return {
+    available: true,
+    venue: {
+      id: venue._id,
+      name: venue.name,
+      capacity: venue.capacity,
+    },
+  }
 }
 
 const EventVenue = mongoose.model("EventVenue", eventVenueSchema)
-
 export default EventVenue
