@@ -2,140 +2,75 @@ import mongoose from "mongoose"
 
 const eventFeedbackSchema = new mongoose.Schema(
   {
-    hotel: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
-      required: [true, "Hotel ID is required"],
-    },
-    event: {
+    booking: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "EventBooking",
-      required: [true, "Event ID is required"],
+      required: [true, "Event booking is required"],
+      unique: true,
     },
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Guest",
-      required: [true, "Customer ID is required"],
+      required: [true, "Customer is required"],
     },
-    overallRating: {
+    hotel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hotel",
+      required: [true, "Hotel is required"],
+    },
+    eventType: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "EventType",
+    },
+    rating: {
       type: Number,
-      required: [true, "Overall rating is required"],
+      required: [true, "Rating is required"],
       min: [1, "Rating must be at least 1"],
       max: [5, "Rating cannot exceed 5"],
-    },
-    categories: {
-      venue: {
-        rating: {
-          type: Number,
-          min: [1, "Rating must be at least 1"],
-          max: [5, "Rating cannot exceed 5"],
-        },
-        comments: {
-          type: String,
-          trim: true,
-        },
-      },
-      catering: {
-        rating: {
-          type: Number,
-          min: [1, "Rating must be at least 1"],
-          max: [5, "Rating cannot exceed 5"],
-        },
-        comments: {
-          type: String,
-          trim: true,
-        },
-      },
-      staff: {
-        rating: {
-          type: Number,
-          min: [1, "Rating must be at least 1"],
-          max: [5, "Rating cannot exceed 5"],
-        },
-        comments: {
-          type: String,
-          trim: true,
-        },
-      },
-      value: {
-        rating: {
-          type: Number,
-          min: [1, "Rating must be at least 1"],
-          max: [5, "Rating cannot exceed 5"],
-        },
-        comments: {
-          type: String,
-          trim: true,
-        },
-      },
     },
     comments: {
       type: String,
       trim: true,
+      maxlength: [1000, "Comments cannot exceed 1000 characters"],
     },
-    wouldRecommend: {
-      type: Boolean,
-    },
-    improvementSuggestions: {
-      type: String,
-      trim: true,
-    },
-    photos: [
+    categories: [
       {
-        url: {
+        name: {
           type: String,
           required: true,
         },
-        caption: {
-          type: String,
-          trim: true,
+        rating: {
+          type: Number,
+          required: true,
+          min: [1, "Rating must be at least 1"],
+          max: [5, "Rating cannot exceed 5"],
         },
       },
     ],
-    isPublic: {
-      type: Boolean,
-      default: false,
-    },
-    status: {
-      type: String,
-      enum: {
-        values: ["pending", "approved", "rejected", "archived"],
-        message: "Invalid status",
-      },
-      default: "pending",
-    },
-    adminResponse: {
-      content: {
-        type: String,
-        trim: true,
-      },
-      respondedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-      respondedAt: {
-        type: Date,
-      },
-    },
-    followUpRequired: {
-      type: Boolean,
-      default: false,
-    },
-    followUpNotes: {
+    response: {
       type: String,
       trim: true,
+      maxlength: [1000, "Response cannot exceed 1000 characters"],
     },
-    followUpCompletedBy: {
+    responseDate: {
+      type: Date,
+    },
+    respondedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    followUpCompletedAt: {
-      type: Date,
-    },
-    isDeleted: {
+    isResponded: {
       type: Boolean,
       default: false,
-      select: false,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   {
@@ -143,12 +78,13 @@ const eventFeedbackSchema = new mongoose.Schema(
   },
 )
 
-// Index for efficient queries
-eventFeedbackSchema.index({ hotel: 1, event: 1 })
+// Add indexes
+eventFeedbackSchema.index({ booking: 1 })
 eventFeedbackSchema.index({ customer: 1 })
-eventFeedbackSchema.index({ overallRating: 1 })
-eventFeedbackSchema.index({ status: 1 })
-eventFeedbackSchema.index({ isDeleted: 1 })
+eventFeedbackSchema.index({ hotel: 1 })
+eventFeedbackSchema.index({ eventType: 1 })
+eventFeedbackSchema.index({ rating: 1 })
+eventFeedbackSchema.index({ isResponded: 1 })
 
 const EventFeedback = mongoose.model("EventFeedback", eventFeedbackSchema)
 

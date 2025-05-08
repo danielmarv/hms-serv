@@ -2,60 +2,76 @@ import mongoose from "mongoose"
 
 const eventStaffingSchema = new mongoose.Schema(
   {
-    hotel: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
-      required: [true, "Hotel ID is required"],
-    },
     event: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "EventBooking",
-      required: [true, "Event ID is required"],
+      required: [true, "Event is required"],
     },
     staff: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "Staff ID is required"],
+      required: [true, "Staff member is required"],
+    },
+    hotel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hotel",
+      required: [true, "Hotel is required"],
+    },
+    date: {
+      type: Date,
+      required: [true, "Date is required"],
+    },
+    startTime: {
+      type: String,
+      required: [true, "Start time is required"],
+      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, "Start time must be in HH:MM format"],
+    },
+    endTime: {
+      type: String,
+      required: [true, "End time is required"],
+      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, "End time must be in HH:MM format"],
     },
     role: {
       type: String,
       required: [true, "Role is required"],
       trim: true,
     },
-    startTime: {
-      type: Date,
-      required: [true, "Start time is required"],
-    },
-    endTime: {
-      type: Date,
-      required: [true, "End time is required"],
-    },
-    hourlyRate: {
-      type: Number,
-      required: [true, "Hourly rate is required"],
-      min: [0, "Hourly rate cannot be negative"],
-    },
-    totalHours: {
-      type: Number,
-      required: [true, "Total hours is required"],
-      min: [0, "Total hours cannot be negative"],
-    },
-    totalCost: {
-      type: Number,
-      required: [true, "Total cost is required"],
-      min: [0, "Total cost cannot be negative"],
-    },
     status: {
       type: String,
-      enum: {
-        values: ["scheduled", "confirmed", "checked_in", "completed", "cancelled", "no_show"],
-        message: "Invalid status",
-      },
+      enum: ["scheduled", "confirmed", "checked-in", "completed", "cancelled", "no-show"],
       default: "scheduled",
+    },
+    checkInTime: {
+      type: Date,
+    },
+    checkOutTime: {
+      type: Date,
     },
     notes: {
       type: String,
       trim: true,
+      maxlength: [500, "Notes cannot exceed 500 characters"],
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    hourlyRate: {
+      type: Number,
+      min: [0, "Hourly rate cannot be negative"],
+    },
+    totalHours: {
+      type: Number,
+      min: [0, "Total hours cannot be negative"],
+    },
+    totalCost: {
+      type: Number,
+      min: [0, "Total cost cannot be negative"],
     },
     checkedInAt: {
       type: Date,
@@ -120,40 +136,18 @@ const eventStaffingSchema = new mongoose.Schema(
       default: false,
       select: false,
     },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
   },
   {
     timestamps: true,
   },
 )
 
-// Pre-save middleware to calculate total hours and cost
-eventStaffingSchema.pre("save", function (next) {
-  if (this.isModified("startTime") || this.isModified("endTime") || this.isModified("hourlyRate") || this.isNew) {
-    // Calculate total hours
-    const startTime = new Date(this.startTime)
-    const endTime = new Date(this.endTime)
-    const totalHoursDecimal = (endTime - startTime) / (1000 * 60 * 60)
-    this.totalHours = Math.round(totalHoursDecimal * 100) / 100 // Round to 2 decimal places
-
-    // Calculate total cost
-    this.totalCost = Math.round(this.totalHours * this.hourlyRate * 100) / 100 // Round to 2 decimal places
-  }
-  next()
-})
-
-// Index for efficient queries
-eventStaffingSchema.index({ hotel: 1, event: 1 })
-eventStaffingSchema.index({ staff: 1, startTime: 1, endTime: 1 })
+// Add indexes
+eventStaffingSchema.index({ event: 1 })
+eventStaffingSchema.index({ staff: 1 })
+eventStaffingSchema.index({ hotel: 1 })
+eventStaffingSchema.index({ date: 1 })
 eventStaffingSchema.index({ status: 1 })
-eventStaffingSchema.index({ isDeleted: 1 })
 
 const EventStaffing = mongoose.model("EventStaffing", eventStaffingSchema)
 
