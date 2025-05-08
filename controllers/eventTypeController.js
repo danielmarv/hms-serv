@@ -1,138 +1,187 @@
 import EventType from "../models/EventType.js"
-import EventBooking from "../models/EventBooking.js"
-import { successResponse, errorResponse } from "../utils/responseHandler.js"
+import Event from "../models/Event.js"
+import { ApiError } from "../utils/apiError.js"
+import { ApiResponse } from "../utils/apiResponse.js"
+import asyncHandler from "../utils/asyncHandler.js"
 
 /**
- * Get all event types
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * @desc    Get all event types
+ * @route   GET /api/events/types
+ * @access  Private
  */
-export const getAllEventTypes = async (req, res) => {
-  try {
-    const { isActive, hotel, sortBy, limit = 20, page = 1 } = req.query
-    const skip = (page - 1) * limit
+export const getAllEventTypes = asyncHandler(async (req, res) => {
+  const { hotel_id, status, category, page = 1, limit = 20 } = req.query
 
-    // Build query
-    const query = {}
-    if (isActive !== undefined) query.isActive = isActive === "true"
-    if (hotel) query.hotel = hotel
+  // Build filter object
+  const filter = { is_deleted: false }
 
-    // Build sort options
-    const sortOptions = {}
-    if (sortBy) {
-      const [field, order] = sortBy.split(":")
-      sortOptions[field] = order === "desc" ? -1 : 1
-    } else {
-      sortOptions.name = 1 // Default sort by name ascending
-    }
+  if (hotel_id) filter.hotel_id = hotel_id
+  if (status) filter.status = status
+  if (category) filter.category = category
 
-    const eventTypes = await EventType.find(query).sort(sortOptions).skip(skip).limit(Number.parseInt(limit))
+  // Calculate pagination
+  const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
 
-    const total = await EventType.countDocuments(query)
+  // Execute query with pagination
+  const eventTypes = await EventType.find(filter).sort({ name: 1 }).skip(skip).limit(Number.parseInt(limit)).lean()
 
-    return successResponse(res, {
-      eventTypes,
-      pagination: {
-        total,
-        page: Number.parseInt(page),
-        pages: Math.ceil(total / limit),
-        limit: Number.parseInt(limit),
+  // Get total count for pagination
+  const total = await EventType.countDocuments(filter)
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        event_types: eventTypes,
+        pagination: {
+          total,
+          page: Number.parseInt(page),
+          pages: Math.ceil(total / Number.parseInt(limit)),
+          limit: Number.parseInt(limit),
+        },
       },
+      "Event types retrieved successfully",
+    ),
+  )
+})
+
+/**
+ * @desc    Get event type by ID
+ * @route   GET /api/events/types/:id
+ * @access  Private
+ */
+export const getEventTypeById = asyncHandler(async (req, res) => {
+  const { id } = req.params
+
+  const eventType = await EventType.findOne({ _id: id, is_deleted: false })
+
+  if (!eventType) {
+    throw new ApiError("Event type not found", 404)
+  }
+
+  res.status(200).json(new ApiResponse(200, eventType, "Event type retrieved successfully"))
+})
+
+/**
+ * @desc    Create a new event type
+ * @route   POST /api/events/types
+ * @access  Private
+ */
+export const createEventType = asyncHandler(async (req, res) => {
+  const {
+    name,
+    description,
+    hotel_id,
+    category,
+    color,
+    icon,
+    default_duration,
+    default_capacity,
+    base_price,
+    price_per_person,
+    features,
+    status,
+  } = req.body
+
+  // Validate required fields
+  if (!name || !hotel_id) {
+    throw new ApiError("Please provide all required fields", 400)
+  }
+
+  // Check for duplicate event type name in the same hotel
+  const existingEventType = await EventType.findOne({ name, hotel_id, is_deleted: false })
+  if (existingEventType) {
+    throw new ApiError("An event type with this name already exists in this hotel", 400)
+  }
+
+  // Create event type
+  const newEventType = new EventType({
+    name,
+    description,
+    hotel_id,
+    category: category || "other",
+    color: color || "#3788d8",
+    icon,
+    default_duration: default_duration || 60, // Default 60 minutes
+    default_capacity: default_capacity || 0,
+    base_price: base_price || 0,
+    price_per_person: price_per_person || 0,
+    features,
+    status: status || "active",
+    createdBy: req.user._id,
+    updatedBy: req.user._id,
+  })
+
+  await newEventType.save()
+
+  res.status(201).json(new ApiResponse(201, newEventType, "Event type created successfully"))
+})
+
+/**
+ * @desc    Update an event type
+ * @route   PUT /api/events/types/:id
+ * @access  Private
+ */
+export const updateEventType = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const updateData = req.body
+
+  // Find event type
+  const eventType = await EventType.findOne({ _id: id, is_deleted: false })
+  if (!eventType) {
+    throw new ApiError("Event type not found", 404)
+  }
+
+  // Check for duplicate event type name in the same hotel
+  if (updateData.name && updateData.name !== eventType.name) {
+    const existingEventType = await EventType.findOne({
+      name: updateData.name,
+      hotel_id: updateData.hotel_id || eventType.hotel_id,
+      _id: { $ne: id },
+      is_deleted: false,
     })
-  } catch (error) {
-    return errorResponse(res, "Failed to fetch event types", 500, error)
+    if (existingEventType) {
+      throw new ApiError("An event type with this name already exists in this hotel", 400)
+    }
   }
-}
+
+  // Add updatedBy
+  updateData.updatedBy = req.user._id
+
+  // Update event type
+  const updatedEventType = await EventType.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+
+  res.status(200).json(new ApiResponse(200, updatedEventType, "Event type updated successfully"))
+})
 
 /**
- * Get event type by ID
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * @desc    Delete an event type
+ * @route   DELETE /api/events/types/:id
+ * @access  Private
  */
-export const getEventTypeById = async (req, res) => {
-  try {
-    const eventType = await EventType.findById(req.params.id)
+export const deleteEventType = asyncHandler(async (req, res) => {
+  const { id } = req.params
 
-    if (!eventType) {
-      return errorResponse(res, "Event type not found", 404)
-    }
-
-    return successResponse(res, { eventType })
-  } catch (error) {
-    return errorResponse(res, "Failed to fetch event type", 500, error)
+  // Check if event type exists
+  const eventType = await EventType.findOne({ _id: id, is_deleted: false })
+  if (!eventType) {
+    throw new ApiError("Event type not found", 404)
   }
-}
 
-/**
- * Create new event type
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const createEventType = async (req, res) => {
-  try {
-    // Add user ID to created by field
-    req.body.createdBy = req.user._id
+  // Check if event type is used in any events
+  const eventsUsingType = await Event.countDocuments({
+    event_type_id: id,
+    is_deleted: false,
+  })
 
-    const newEventType = new EventType(req.body)
-    await newEventType.save()
-
-    return successResponse(res, { eventType: newEventType }, 201)
-  } catch (error) {
-    return errorResponse(res, "Failed to create event type", 500, error)
+  if (eventsUsingType > 0) {
+    throw new ApiError("Cannot delete event type that is used in events", 400)
   }
-}
 
-/**
- * Update event type
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const updateEventType = async (req, res) => {
-  try {
-    // Add user ID to updated by field
-    req.body.updatedBy = req.user._id
+  // Soft delete event type
+  eventType.is_deleted = true
+  eventType.updatedBy = req.user._id
+  await eventType.save()
 
-    const eventType = await EventType.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true },
-    )
-
-    if (!eventType) {
-      return errorResponse(res, "Event type not found", 404)
-    }
-
-    return successResponse(res, { eventType })
-  } catch (error) {
-    return errorResponse(res, "Failed to update event type", 500, error)
-  }
-}
-
-/**
- * Delete event type
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const deleteEventType = async (req, res) => {
-  try {
-    // Check if event type is used in any bookings
-    const bookings = await EventBooking.find({
-      eventType: req.params.id,
-      status: { $in: ["confirmed", "pending"] },
-    })
-
-    if (bookings.length > 0) {
-      return errorResponse(res, "Cannot delete event type as it is used in active bookings", 400)
-    }
-
-    const eventType = await EventType.findByIdAndDelete(req.params.id)
-
-    if (!eventType) {
-      return errorResponse(res, "Event type not found", 404)
-    }
-
-    return successResponse(res, { message: "Event type deleted successfully" })
-  } catch (error) {
-    return errorResponse(res, "Failed to delete event type", 500, error)
-  }
-}
+  res.status(200).json(new ApiResponse(200, null, "Event type deleted successfully"))
+})

@@ -6,6 +6,7 @@ import { ApiError } from "../utils/apiError.js"
 import { ApiResponse } from "../utils/apiResponse.js"
 import asyncHandler from "../utils/asyncHandler.js"
 import mongoose from "mongoose"
+import Event from "../models/Event.js"
 
 /**
  * @desc    Create a new event booking
@@ -1130,3 +1131,462 @@ exports.getBookingsByCustomer = async (req, res) => {
     return errorResponse(res, "Failed to get bookings by customer", 500, error)
   }
 }
+// Get all bookings
+exports.getAllBookings = asyncHandler(async (req, res) => {
+  const {
+    hotel_id,
+    venue_id,
+    status,
+    start_date,
+    end_date,
+    customer_email,
+    customer_id,
+    page = 1,
+    limit = 20,
+    sort = "-createdAt",
+  } = req.query
+
+  // Build filter object
+  const filter = { is_deleted: false }
+
+  if (hotel_id) filter.hotel_id = hotel_id
+  if (venue_id) filter.venue_id = venue_id
+  if (status) filter.status = status
+  if (customer_email) filter["customer.email"] = new RegExp(customer_email, "i")
+  if (customer_id) filter["customer.customer_id"] = customer_id
+
+  // Date range filter
+  if (start_date && end_date) {
+    filter.$or = [
+      {
+        start_date: { $gte: new Date(start_date), $lte: new Date(end_date) },
+      },
+      {
+        end_date: { $gte: new Date(start_date), $lte: new Date(end_date) },
+      },
+      {
+        start_date: { $lte: new Date(start_date) },
+        end_date: { $gte: new Date(end_date) },
+      },
+    ]
+  } else if (start_date) {
+    filter.start_date = { $gte: new Date(start_date) }
+  } else if (end_date) {
+    filter.end_date = { $lte: new Date(end_date) }
+  }
+
+  // Calculate pagination
+  const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
+
+  // Execute query with pagination
+  const bookings = await EventBooking.find(filter)
+    .sort(sort)
+    .skip(skip)
+    .limit(Number.parseInt(limit))
+    .populate("venue_id", "name capacity")
+    .populate("event_id", "title event_type_id")
+    .lean()
+
+  // Get total count for pagination
+  const total = await EventBooking.countDocuments(filter)
+
+  res.status(200).json({
+    status: "success",
+    results: bookings.length,
+    total,
+    page: Number.parseInt(page),
+    pages: Math.ceil(total / Number.parseInt(limit)),
+    data: bookings,
+  })
+})
+
+// Get booking by ID
+exports.getBookingById = asyncHandler(async (req, res) => {
+  const { id } = req.params
+
+  const booking = await EventBooking.findOne({ _id: id, is_deleted: false })
+    .populate("venue_id")
+    .populate("event_id")
+    .populate("services.service_id")
+    .populate("packages.package_id")
+    .populate("createdBy", "full_name email")
+    .populate("updatedBy", "full_name email")
+
+  if (!booking) {
+    throw new ApiError("Booking not found", 404)
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: booking,
+  })
+})
+
+// Create booking
+exports.createBooking = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession()
+  session.startTransaction()
+
+  try {
+    const {
+      event_id,
+      venue_id,
+      hotel_id,
+      customer,
+      start_date,
+      end_date,
+      attendees,
+      services,
+      packages,
+      pricing,
+      notes,
+    } = req.body
+
+    // Check if venue exists
+    const venue = await EventVenue.findOne({ _id: venue_id, hotel_id, is_deleted: false })
+    if (!venue) {
+      throw new ApiError("Venue not found", 404)
+    }
+
+    // Check venue availability
+    const availability = await venue.checkAvailability(start_date, end_date)
+    if (!availability.available) {
+      throw new ApiError(`Venue not available: ${availability.reason}`, 400)
+    }
+
+    // Check if event exists
+    const event = await Event.findOne({ _id: event_id, hotel_id, is_deleted: false })
+    if (!event) {
+      throw new ApiError("Event not found", 404)
+    }
+
+    // Create booking
+    const newBooking = new EventBooking({
+      event_id,
+      venue_id,
+      hotel_id,
+      customer,
+      start_date,
+      end_date,
+      attendees,
+      services,
+      packages,
+      pricing: {
+        ...pricing,
+        venue_fee: venue.pricing.base_price || 0,
+      },
+      notes,
+      createdBy: req.user._id,
+      updatedBy: req.user._id,
+      timeline: [
+        {
+          status: "inquiry",
+          date: new Date(),
+          user_id: req.user._id,
+        },
+      ],
+    })
+
+    // Calculate setup and teardown times
+    if (venue.setup_time) {
+      const setupStart = new Date(start_date)
+      setupStart.setMinutes(setupStart.getMinutes() - venue.setup_time)
+      newBooking.setup_start = setupStart
+    }
+
+    if (venue.teardown_time) {
+      const teardownEnd = new Date(end_date)
+      teardownEnd.setMinutes(teardownEnd.getMinutes() + venue.teardown_time)
+      newBooking.teardown_end = teardownEnd
+    }
+
+    // Save booking
+    await newBooking.save({ session })
+
+    // Update event with booking reference
+    event.bookings = event.bookings || []
+    event.bookings.push(newBooking._id)
+    await event.save({ session })
+
+    await session.commitTransaction()
+
+    res.status(201).json({
+      status: "success",
+      data: newBooking,
+    })
+  } catch (error) {
+    await session.abortTransaction()
+    throw error
+  } finally {
+    session.endSession()
+  }
+})
+
+// Update booking
+exports.updateBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const updateData = req.body
+
+  // Find booking
+  const booking = await EventBooking.findOne({ _id: id, is_deleted: false })
+  if (!booking) {
+    throw new ApiError("Booking not found", 404)
+  }
+
+  // Check if dates are being updated
+  if (updateData.start_date && updateData.end_date) {
+    // Check venue availability for new dates
+    const venue = await EventVenue.findById(booking.venue_id)
+    if (!venue) {
+      throw new ApiError("Venue not found", 404)
+    }
+
+    const availability = await venue.checkAvailability(updateData.start_date, updateData.end_date)
+
+    // Allow the current booking to overlap with itself
+    if (
+      !availability.available &&
+      (!availability.conflicting_bookings || !availability.conflicting_bookings.some((b) => b._id.toString() === id))
+    ) {
+      throw new ApiError(`Venue not available: ${availability.reason}`, 400)
+    }
+  }
+
+  // Add updatedBy
+  updateData.updatedBy = req.user._id
+
+  // Update booking
+  const updatedBooking = await EventBooking.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+
+  res.status(200).json({
+    status: "success",
+    data: updatedBooking,
+  })
+})
+
+// Delete booking
+exports.deleteBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params
+
+  // Soft delete
+  const booking = await EventBooking.findByIdAndUpdate(
+    id,
+    {
+      is_deleted: true,
+      updatedBy: req.user._id,
+    },
+    { new: true },
+  )
+
+  if (!booking) {
+    throw new ApiError("Booking not found", 404)
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Booking deleted successfully",
+  })
+})
+
+// Update booking status
+exports.updateBookingStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const { status, notes } = req.body
+
+  if (!["inquiry", "tentative", "confirmed", "in_progress", "completed", "cancelled", "no_show"].includes(status)) {
+    throw new ApiError("Invalid status value", 400)
+  }
+
+  const booking = await EventBooking.findOne({ _id: id, is_deleted: false })
+  if (!booking) {
+    throw new ApiError("Booking not found", 404)
+  }
+
+  // Add status change to timeline
+  booking.timeline.push({
+    status,
+    date: new Date(),
+    user_id: req.user._id,
+    notes,
+  })
+
+  booking.status = status
+  booking.updatedBy = req.user._id
+
+  if (notes) {
+    booking.notes.internal = booking.notes.internal
+      ? `${booking.notes.internal}\n${new Date().toISOString()}: ${notes}`
+      : `${new Date().toISOString()}: ${notes}`
+  }
+
+  await booking.save()
+
+  res.status(200).json({
+    status: "success",
+    data: booking,
+  })
+})
+
+// Add booking payment
+exports.addBookingPayment = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const { amount, method, reference, notes } = req.body
+
+  if (!amount || amount <= 0) {
+    throw new ApiError("Payment amount must be greater than zero", 400)
+  }
+
+  const booking = await EventBooking.findOne({ _id: id, is_deleted: false })
+  if (!booking) {
+    throw new ApiError("Booking not found", 404)
+  }
+
+  // Add payment transaction
+  const transaction = {
+    date: new Date(),
+    amount,
+    method,
+    reference,
+    notes,
+  }
+
+  booking.payment.transactions.push(transaction)
+
+  // Update payment totals
+  booking.payment.amount_paid += amount
+  booking.payment.balance_due = booking.pricing.total - booking.payment.amount_paid
+
+  // Update payment status
+  if (booking.payment.balance_due <= 0) {
+    booking.payment.status = "paid"
+  } else if (booking.payment.amount_paid > 0) {
+    booking.payment.status = "partial"
+  }
+
+  // Check if this is a deposit payment
+  if (!booking.payment.deposit_paid && amount >= booking.pricing.deposit_required) {
+    booking.payment.deposit_paid = true
+    booking.payment.deposit_date = new Date()
+    booking.payment.deposit_method = method
+    booking.payment.deposit_reference = reference
+  }
+
+  booking.updatedBy = req.user._id
+
+  await booking.save()
+
+  res.status(200).json({
+    status: "success",
+    data: booking,
+  })
+})
+
+// Confirm booking
+exports.confirmBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const { contract_signed, signed_by, terms_accepted } = req.body
+
+  const booking = await EventBooking.findOne({ _id: id, is_deleted: false })
+  if (!booking) {
+    throw new ApiError("Booking not found", 404)
+  }
+
+  // Check if deposit is required but not paid
+  if (booking.pricing.deposit_required > 0 && !booking.payment.deposit_paid) {
+    throw new ApiError("Deposit payment is required before confirmation", 400)
+  }
+
+  // Update contract status if provided
+  if (contract_signed) {
+    booking.contract.status = "signed"
+    booking.contract.signed_date = new Date()
+    booking.contract.signed_by = signed_by
+    booking.contract.terms_accepted = terms_accepted || false
+  }
+
+  // Update booking status
+  booking.status = "confirmed"
+  booking.updatedBy = req.user._id
+
+  // Add to timeline
+  booking.timeline.push({
+    status: "confirmed",
+    date: new Date(),
+    user_id: req.user._id,
+    notes: "Booking confirmed",
+  })
+
+  await booking.save()
+
+  res.status(200).json({
+    status: "success",
+    data: booking,
+  })
+})
+
+// Cancel booking
+exports.cancelBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const { reason, refund_amount } = req.body
+
+  const booking = await EventBooking.findOne({ _id: id, is_deleted: false })
+  if (!booking) {
+    throw new ApiError("Booking not found", 404)
+  }
+
+  // Check if booking can be cancelled
+  const cancellationCheck = booking.canCancel()
+  if (!cancellationCheck.canCancel) {
+    throw new ApiError(`Cannot cancel booking: ${cancellationCheck.reason}`, 400)
+  }
+
+  // Update booking status
+  booking.status = "cancelled"
+  booking.updatedBy = req.user._id
+
+  // Add cancellation details to notes
+  const cancellationNote = `Cancelled on ${new Date().toISOString()}. Reason: ${reason || "Not provided"}.`
+  booking.notes.internal = booking.notes.internal ? `${booking.notes.internal}\n${cancellationNote}` : cancellationNote
+
+  // Add to timeline
+  booking.timeline.push({
+    status: "cancelled",
+    date: new Date(),
+    user_id: req.user._id,
+    notes: reason,
+  })
+
+  // Handle refund if provided
+  if (refund_amount && refund_amount > 0) {
+    booking.payment.transactions.push({
+      date: new Date(),
+      amount: -refund_amount, // Negative amount for refund
+      method: "refund",
+      reference: `Refund for cancellation: ${id}`,
+      notes: reason,
+    })
+
+    booking.payment.amount_paid -= refund_amount
+    booking.payment.balance_due = booking.pricing.total - booking.payment.amount_paid
+
+    if (booking.payment.amount_paid <= 0) {
+      booking.payment.status = "refunded"
+    }
+  }
+
+  await booking.save()
+
+  res.status(200).json({
+    status: "success",
+    data: booking,
+    cancellation_policy: cancellationCheck.penalty
+      ? {
+          penalty: true,
+          penalty_amount: cancellationCheck.penaltyAmount,
+          reason: cancellationCheck.reason,
+        }
+      : {
+          penalty: false,
+        },
+  })
+})
