@@ -580,7 +580,6 @@ export const getFeedbackReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Get all feedback for the hotel in the date range
     const EventFeedback = mongoose.model("EventFeedback")
 
     const feedback = await EventFeedback.find({
