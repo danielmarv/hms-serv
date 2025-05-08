@@ -228,7 +228,6 @@ export const getEventTypeReport = async (req, res) => {
       start_date: { $gte: startDateTime, $lte: endDateTime },
     }
 
-    // Group by event type
     const pipeline = [
       { $match: matchStage },
       {
