@@ -24,8 +24,8 @@ router.put(
 
 router.delete("/:id", authorize(["staffing.delete"]), eventStaffingController.deleteStaffAssignment)
 
-// Staff availability routes
-router.get("/staff/:staffId/availability", authorize(["staffing.view"]), eventStaffingController.getStaffAvailability)
+// Staff availability routes - Commenting out until the controller function is implemented
+// router.get("/staff/:staffId/availability", authorize(["staffing.view"]), eventStaffingController.getStaffAvailability)
 
 // Event staffing routes
 router.get("/event/:eventId", authorize(["staffing.view"]), eventStaffingController.getEventStaffing)
