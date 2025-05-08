@@ -117,7 +117,6 @@ export const getRevenueReport = async (req, res) => {
 
     const revenueData = await EventBooking.aggregate(pipeline)
 
-    // Format response based on group_by
     let formattedData = []
 
     if (group_by === "event_type" || group_by === "venue") {
