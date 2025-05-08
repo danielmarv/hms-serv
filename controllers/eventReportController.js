@@ -208,7 +208,6 @@ export const getEventTypeReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Hotel ID is required"))
     }
 
-    // Default to last 12 months if no date range provided
     const endDateTime = end_date ? new Date(end_date) : new Date()
     const startDateTime = start_date
       ? new Date(start_date)
@@ -218,13 +217,11 @@ export const getEventTypeReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid date format"))
     }
 
-    // Get all event types for the hotel
     const eventTypes = await EventType.find({
       hotel_id,
       is_deleted: false,
     }).lean()
 
-    // Build match stage
     const matchStage = {
       hotel_id: mongoose.Types.ObjectId(hotel_id),
       is_deleted: false,
