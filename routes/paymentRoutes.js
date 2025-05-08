@@ -32,7 +32,6 @@ router.post("/", authorize(["admin", "manager", "accountant", "receptionist"]), 
 
 router.put("/:id", validateObjectId("id"), authorize(["admin", "manager", "accountant"]), updatePayment)
 
-// Delete payment
 router.delete("/:id", validateObjectId("id"), authorize(["admin", "manager", "accountant"]), deletePayment)
 
 // Process refund
