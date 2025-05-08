@@ -21,7 +21,6 @@ router.get("/", authorize(["admin", "manager", "accountant", "receptionist"]), g
 
 router.get("/stats", authorize(["admin", "manager", "accountant"]), getPaymentStats)
 
-// Get payment by ID
 router.get(
   "/:id",
   validateObjectId("id"),
