@@ -479,7 +479,6 @@ export const getServicePopularityReport = async (req, res) => {
       "services.0": { $exists: true },
     }
 
-    // Unwind services array and group by service
     const pipeline = [
       { $match: matchStage },
       { $unwind: "$services" },
@@ -508,7 +507,6 @@ export const getServicePopularityReport = async (req, res) => {
 
     const serviceStats = await EventBooking.aggregate(pipeline)
 
-    // Get total bookings in the period for percentage calculation
     const totalBookings = await EventBooking.countDocuments({
       hotel_id,
       is_deleted: false,
