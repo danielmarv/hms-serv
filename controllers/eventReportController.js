@@ -596,7 +596,6 @@ export const getFeedbackReport = async (req, res) => {
       })
       .lean()
 
-    // Calculate overall ratings
     const totalFeedback = feedback.length
     const overallRating =
       totalFeedback > 0 ? (feedback.reduce((sum, item) => sum + item.rating, 0) / totalFeedback).toFixed(2) : 0
