@@ -30,7 +30,6 @@ router.get(
 
 router.post("/", authorize(["admin", "manager", "accountant", "receptionist"]), createPayment)
 
-// Update payment
 router.put("/:id", validateObjectId("id"), authorize(["admin", "manager", "accountant"]), updatePayment)
 
 // Delete payment
