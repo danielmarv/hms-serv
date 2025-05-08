@@ -113,7 +113,6 @@ export const getRevenueReport = async (req, res) => {
       return res.status(400).json(new ApiResponse(400, null, "Invalid group_by parameter"))
     }
 
-    // Execute aggregation
     const pipeline = [{ $match: matchStage }, { $group: groupStage }, { $sort: sortStage }]
 
     const revenueData = await EventBooking.aggregate(pipeline)
