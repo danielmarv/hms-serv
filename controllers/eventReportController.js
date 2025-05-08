@@ -398,7 +398,6 @@ export const getVenueUtilizationReport = async (req, res) => {
 
     const venueStats = await EventBooking.aggregate(pipeline)
 
-    // Update venue data with booking statistics
     venueStats.forEach((stat) => {
       const venueIndex = venueData.findIndex((v) => v.id.toString() === stat._id.toString())
       if (venueIndex !== -1) {
@@ -414,7 +413,6 @@ export const getVenueUtilizationReport = async (req, res) => {
       }
     })
 
-    // Sort by utilization rate
     venueData.sort((a, b) => b.utilization_rate - a.utilization_rate)
 
     // Calculate totals
