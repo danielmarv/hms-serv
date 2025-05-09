@@ -75,7 +75,18 @@ app.use("/api/cross-hotel", crossHotelRoutes)
 app.use("/api/data-sync", dataSyncRoutes)
 app.use("/api/chains", hotelChainRoutes)
 app.use("/api/kitchen", kitchenRoutes)
+
+// Event related routes
 app.use("/api/events", eventRoutes)
+app.use("/api/event-types", eventTypeRoutes)
+app.use("/api/event-service", eventServiceRoutes)
+app.use("/api/event-package", eventPackageRoutes)
+app.use("/api/event-template", eventTemplateRoutes)
+app.use("/api/event-staffing", eventStaffingRoutes)
+app.use("/api/event-feedback", eventFeedbackRoutes)
+app.use("/api/event-calendar", eventCalendarRoutes)
+app.use("/api/event-report", eventReportRoutes)
+app.use("/api/event-booking", eventBookingRoutes)
 
 // Hotel management
 app.use("/api/hotels", hotelRoutes)
